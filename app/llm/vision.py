@@ -1,31 +1,20 @@
+
 import base64
-import os
 import time
 
 import requests
-from dotenv import load_dotenv
 
-
-load_dotenv(override=True)
-
-
-API_KEY = os.getenv("GEMINI_API_KEY")
-
-MODEL = "gemini-3.6-flash"
+from app.llm.gemini import API_KEY, VISION_MODEL
 
 PROMPT = """
 You are an intelligent OCR engine.
 
-Extract every visible text from this document.
+Extract all visible text from this document page.
 
 Rules:
-
-- Preserve headings
-- Preserve tables
-- Preserve lists
-- Preserve formatting
-- Return ONLY Markdown
-- Do NOT summarize
+- Preserve headings, tables, lists, and meaningful formatting.
+- Do not summarize or interpret the page.
+- Return only Markdown.
 """
 
 
@@ -33,174 +22,88 @@ def image_to_markdown(
     image_path: str,
     max_retries: int = 3,
 ) -> str:
-
-    print("=" * 60)
-    print("VISION (REST)")
-    print("=" * 60)
-    print("MODEL :", MODEL)
-    print("IMAGE :", image_path)
-    print("=" * 60)
-
-    if not API_KEY:
-        raise RuntimeError(
-            "GEMINI_API_KEY is not configured."
-        )
-
-    with open(image_path, "rb") as f:
-        image_bytes = f.read()
-
-    image_base64 = base64.b64encode(
-        image_bytes
-    ).decode()
+    with open(image_path, "rb") as image_file:
+        image_base64 = base64.b64encode(
+            image_file.read()
+        ).decode("ascii")
 
     url = (
         "https://generativelanguage.googleapis.com/"
-        f"v1beta/models/{MODEL}:generateContent"
+        f"v1beta/models/{VISION_MODEL}:generateContent"
     )
 
     payload = {
         "contents": [
             {
                 "parts": [
-                    {
-                        "text": PROMPT,
-                    },
+                    {"text": PROMPT},
                     {
                         "inline_data": {
                             "mime_type": "image/jpeg",
                             "data": image_base64,
-                        },
+                        }
                     },
                 ]
             }
         ]
     }
 
+    headers = {
+        "x-goog-api-key": API_KEY,
+        "Content-Type": "application/json",
+    }
+
     for attempt in range(1, max_retries + 1):
-
         try:
-
-            print(
-                f"Vision request attempt "
-                f"{attempt}/{max_retries}"
-            )
-
             response = requests.post(
                 url,
-                params={
-                    "key": API_KEY,
-                },
+                headers=headers,
                 json=payload,
                 timeout=120,
             )
 
-            # Retry temporary server/rate-limit errors.
-            if response.status_code in {
-                429,
-                500,
-                502,
-                503,
-                504,
-            }:
-
-                print(
-                    f"Gemini returned "
-                    f"{response.status_code}."
-                )
-
+            if response.status_code in {429, 500, 502, 503, 504}:
                 if attempt < max_retries:
-
-                    wait_time = 5 * attempt
-
-                    print(
-                        f"Retrying in "
-                        f"{wait_time} seconds..."
-                    )
-
-                    time.sleep(wait_time)
-
+                    time.sleep(min(2 ** attempt, 8))
                     continue
 
-            response.raise_for_status()
-
+            if not response.ok:
+                raise RuntimeError(
+                    f"Gemini vision API returned HTTP {response.status_code}: "
+                    f"{response.text[:2000]}"
+                )
             data = response.json()
 
-            candidates = data.get(
-                "candidates",
-                []
-            )
-
+            candidates = data.get("candidates") or []
             if not candidates:
                 raise RuntimeError(
-                    "Gemini returned no candidates."
+                    "Gemini Vision returned no candidates."
                 )
 
-            content = candidates[0].get(
-                "content",
-                {}
+            parts = (
+                candidates[0]
+                .get("content", {})
+                .get("parts", [])
             )
 
-            parts = content.get(
-                "parts",
-                []
-            )
+            extracted_text = "\n".join(
+                part["text"]
+                for part in parts
+                if isinstance(part, dict) and part.get("text")
+            ).strip()
 
-            if not parts:
+            if not extracted_text:
                 raise RuntimeError(
-                    "Gemini returned no content parts."
+                    "Gemini Vision returned empty OCR output."
                 )
 
-            text = parts[0].get("text")
+            return extracted_text
 
-            if not text:
-                raise RuntimeError(
-                    "Gemini returned empty OCR output."
-                )
-
-            return text
-
-        except requests.exceptions.Timeout as e:
-
-            print(
-                f"Vision request timed out "
-                f"on attempt {attempt}."
-            )
-
-            if attempt >= max_retries:
-                raise RuntimeError(
-                    "Gemini Vision request timed out "
-                    "after multiple attempts."
-                ) from e
-
-            wait_time = 5 * attempt
-
-            print(
-                f"Retrying in "
-                f"{wait_time} seconds..."
-            )
-
-            time.sleep(wait_time)
-
-        except requests.exceptions.RequestException as e:
-
-            print(
-                f"Vision request failed "
-                f"on attempt {attempt}: {e}"
-            )
-
+        except requests.exceptions.RequestException:
             if attempt >= max_retries:
                 raise
-
-            wait_time = 5 * attempt
-
-            print(
-                f"Retrying in "
-                f"{wait_time} seconds..."
-            )
-
-            time.sleep(wait_time)
+            time.sleep(min(2 ** attempt, 8))
 
     raise RuntimeError(
-        "Gemini Vision failed after "
-        "multiple attempts."
+        "Gemini Vision failed after multiple attempts."
     )

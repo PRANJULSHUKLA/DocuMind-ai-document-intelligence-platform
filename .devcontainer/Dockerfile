@@ -1,14 +1,15 @@
-FROM mcr.microsoft.com/vscode/devcontainers/python:0-3.11-bullseye
+
+FROM mcr.microsoft.com/devcontainers/python:3.11-bookworm
 
 ENV PYTHONUNBUFFERED=1
 
-RUN rm -f /etc/apt/sources.list.d/yarn.list && \
-    apt-get update && \
-    apt-get install -y \
+USER root
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     curl \
-    git && \
+    git \
+    poppler-utils && \
     rm -rf /var/lib/apt/lists/*
-
-RUN python -m pip install --upgrade pip

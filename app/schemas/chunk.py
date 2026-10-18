@@ -5,23 +5,13 @@ from pydantic import BaseModel, Field
 
 
 class ChunkSchema(BaseModel):
-
-    # -----------------------------
-    # Document Information
-    # -----------------------------
-
+    # Document information
     file_id: str
-
     filename: str
-
     page_number: int
-
     chunk_index: int
 
-    # -----------------------------
-    # Chunk Metadata
-    # -----------------------------
-
+    # Chunk metadata
     chunk_length: int
 
     document_type: Literal[
@@ -31,31 +21,20 @@ class ChunkSchema(BaseModel):
         "boarding_pass",
         "identity",
         "research_paper",
-        "general"
+        "general",
     ] = "general"
 
     language: str = "unknown"
 
-    # -----------------------------
-    # Embedding Metadata
-    # -----------------------------
-
-    embedding_model: str = "models/gemini-embedding-001"
-
+    # Embedding metadata
+    embedding_model: str = "gemini-embedding-001"
     embedding_dimension: int
 
-    # -----------------------------
     # Content
-    # -----------------------------
-
     text: str
-
     embedding: list[float]
 
-    # -----------------------------
     # Audit
-    # -----------------------------
-
     created_at: datetime = Field(
         default_factory=datetime.utcnow
     )

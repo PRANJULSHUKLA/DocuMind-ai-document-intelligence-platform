@@ -1,9 +1,19 @@
+
 {
     "name": "GenAI Development Environment",
     "dockerComposeFile": "docker-compose.yml",
     "service": "app",
     "workspaceFolder": "/workspaces/full-rag",
     "remoteUser": "root",
+
+    "features": {
+        "ghcr.io/devcontainers/features/node:2": {
+            "version": "22"
+        }
+    },
+
+    "postCreateCommand": "python -m pip install -r requirements.txt && npm --prefix frontend install",
+
     "customizations": {
         "vscode": {
             "extensions": [

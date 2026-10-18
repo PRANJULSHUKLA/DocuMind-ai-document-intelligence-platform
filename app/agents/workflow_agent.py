@@ -3,7 +3,7 @@ import json
 from google.genai import types
 
 from app.constants.rag import RAGConfig
-from app.llm.gemini import client
+from app.llm.gemini import generate_content_with_fallback
 from app.schemas.workflow import WorkflowPlan
 
 
@@ -30,7 +30,7 @@ class WorkflowAgent:
             objective=objective,
         )
 
-        response = client.models.generate_content(
+        response = generate_content_with_fallback(
             model=RAGConfig.WORKFLOW_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(

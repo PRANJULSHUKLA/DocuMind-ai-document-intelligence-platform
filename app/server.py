@@ -1,52 +1,61 @@
+
+import os
+import logging
 from pathlib import Path
 
 from bson import ObjectId
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.constants.status import FileStatus
-
 from app.schemas.file import FileSchema
 from app.schemas.requests import (
     ChatRequest,
     AnalysisRequest,
     WorkflowRequest,
 )
-
 from app.schemas.responses import ChatResponse
 
-from app.services.document_analysis import (
-    DocumentAnalysisService,
-)
-
-from app.services.workflow_service import (
-    WorkflowService,
-)
-
-from app.services.knowledge_service import (
-    KnowledgeService,
-)
+from app.services.document_analysis import DocumentAnalysisService
+from app.services.workflow_service import WorkflowService
+from app.services.knowledge_service import KnowledgeService
 
 from app.db.collections.files import files_collection
-
 from app.queue.q import q
 from app.queue.workers import process_file
 
 
-# =====================================================
-# FastAPI Application
-# =====================================================
+# ---------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------
+
+logger = logging.getLogger("documind")
+
+UPLOAD_DIR = Path(
+    os.getenv("UPLOAD_DIR", "/mnt/uploads")
+).resolve()
+
+MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
+if MAX_UPLOAD_MB <= 0:
+    raise RuntimeError("MAX_UPLOAD_MB must be greater than zero.")
+
+
+# ---------------------------------------------------------
+# FastAPI application
+# ---------------------------------------------------------
 
 app = FastAPI(
     title="Enterprise AI Document Intelligence Platform",
-    version="1.0.0",
+    version="1.1.0",
 )
 
 
-# =====================================================
+# ---------------------------------------------------------
 # CORS
-# =====================================================
+# ---------------------------------------------------------
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,138 +69,196 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
 
 
-# =====================================================
-# Health Check
-# =====================================================
+# ---------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------
+
+def _object_id(file_id: str) -> ObjectId:
+    try:
+        return ObjectId(file_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file_id.",
+        ) from exc
+
+
+async def _mark_failed(file_id: str, message: str) -> None:
+    """Best-effort status update when upload setup fails."""
+    try:
+        await files_collection.update_one(
+            {"_id": ObjectId(file_id)},
+            {
+                "$set": {
+                    "status": FileStatus.FAILED,
+                    "processing_error": message[:1000],
+                }
+            },
+        )
+    except Exception:
+        logger.exception(
+            "Could not mark document %s as failed.",
+            file_id,
+        )
+
+
+def _public_file(doc: dict) -> dict:
+    """Convert MongoDB fields to JSON-safe values."""
+    doc = dict(doc)
+    doc["_id"] = str(doc["_id"])
+
+    # Never expose stored vectors in document-list responses.
+    doc.pop("embedding", None)
+
+    return jsonable_encoder(doc)
+
+
+# ---------------------------------------------------------
+# Health check
+# ---------------------------------------------------------
 
 @app.get("/")
 async def health():
-
     return {
         "status": "healthy",
-        "service": "DocMind AI",
-        "version": "1.0.0",
+        "service": "DocuMind AI",
+        "version": app.version,
     }
 
 
-# =====================================================
-# Upload Document
-# =====================================================
+# ---------------------------------------------------------
+# Upload document
+# ---------------------------------------------------------
 
 @app.post("/upload")
-async def upload(
-    file: UploadFile,
-):
+async def upload(file: UploadFile = File(...)):
+    file_id = None
+    saved_path = None
 
     try:
-
         if not file.filename:
-
             raise HTTPException(
                 status_code=400,
                 detail="No filename provided.",
             )
 
-        document = FileSchema(
-            filename=file.filename,
+        # Treat uploaded filenames as untrusted input.
+        filename = Path(
+            file.filename.replace("\\", "/")
+        ).name
+
+        if not filename or filename in {".", ".."}:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid filename.",
+            )
+
+        if Path(filename).suffix.lower() != ".pdf":
+            raise HTTPException(
+                status_code=415,
+                detail="Only PDF files are supported.",
+            )
+
+        # Read at most one byte above the configured limit.
+        content = await file.read(MAX_UPLOAD_BYTES + 1)
+
+        if not content:
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded file is empty.",
+            )
+
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"File exceeds the {MAX_UPLOAD_MB} MB "
+                    "upload limit."
+                ),
+            )
+
+        # Basic signature check. PDF parsing is also validated
+        # later by the worker when Poppler opens the file.
+        if b"%PDF-" not in content[:1024]:
+            raise HTTPException(
+                status_code=415,
+                detail="The uploaded file does not appear to be a valid PDF.",
+            )
+
+        record = FileSchema(
+            filename=filename,
             status=FileStatus.SAVING,
         )
 
-        db_file = await files_collection.insert_one(
-            document.model_dump()
+        inserted = await files_collection.insert_one(
+            record.model_dump()
         )
+        file_id = str(inserted.inserted_id)
 
-        file_id = str(
-            db_file.inserted_id
-        )
+        document_dir = (UPLOAD_DIR / file_id).resolve()
 
-        upload_dir = (
-            Path("/mnt/uploads")
-            / file_id
-        )
+        # Keep all saved files inside UPLOAD_DIR.
+        if UPLOAD_DIR not in document_dir.parents:
+            raise RuntimeError("Invalid upload destination.")
 
-        upload_dir.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        document_dir.mkdir(parents=True, exist_ok=True)
 
-        file_path = (
-            upload_dir
-            / file.filename
-        )
-
-        file_bytes = await file.read()
-
-        with open(
-            file_path,
-            "wb",
-        ) as f:
-
-            f.write(file_bytes)
+        saved_path = document_dir / filename
+        saved_path.write_bytes(content)
 
         await files_collection.update_one(
-            {
-                "_id": db_file.inserted_id
-            },
+            {"_id": ObjectId(file_id)},
             {
                 "$set": {
-                    "status": FileStatus.QUEUED
+                    "status": FileStatus.QUEUED,
                 }
             },
         )
 
+        # Use an explicit queue and timeout.
         q.enqueue(
             process_file,
             file_id,
-            str(file_path),
+            str(saved_path),
             job_timeout=1200,
         )
 
         return {
             "success": True,
             "file_id": file_id,
-            "filename": file.filename,
+            "filename": filename,
             "status": FileStatus.QUEUED,
-            "message": (
-                "Document uploaded successfully "
-                "and queued for processing."
-            ),
+            "message": "Document uploaded and queued for processing.",
         }
 
     except HTTPException:
-
         raise
 
-    except Exception as e:
+    except Exception as exc:
+        logger.exception("Document upload failed.")
 
-        print(
-            f"Upload failed: {e}"
-        )
+        if file_id:
+            await _mark_failed(file_id, str(exc))
 
         raise HTTPException(
             status_code=500,
-            detail=str(e),
-        )
+            detail="Upload failed. Check the backend logs.",
+        ) from exc
+
+    finally:
+        await file.close()
 
 
-# =====================================================
-# AI Knowledge Assistant — Agent 1
-# =====================================================
+# ---------------------------------------------------------
+# Agent 1: document Q&A
+# ---------------------------------------------------------
 
-@app.post(
-    "/chat",
-    response_model=ChatResponse,
-)
-async def chat(
-    request: ChatRequest,
-):
-
+@app.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
     try:
-
         service = KnowledgeService()
 
         return await service.ask(
@@ -199,50 +266,40 @@ async def chat(
             question=request.question,
         )
 
-    except FileNotFoundError as e:
-
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except ValueError as e:
-
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except RuntimeError as e:
-
+    except RuntimeError as exc:
         raise HTTPException(
             status_code=409,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except Exception as e:
-
-        print(
-            f"Chat failed: {e}"
-        )
+    except Exception as exc:
+        logger.exception("Chat request failed.")
 
         raise HTTPException(
             status_code=500,
-            detail="Unable to answer the question.",
-        )
+            detail="Unable to answer the question. Check backend logs.",
+        ) from exc
 
 
-# =====================================================
-# Document Intelligence — Agent 2
-# =====================================================
+# ---------------------------------------------------------
+# Agent 2: document intelligence and risk analysis
+# ---------------------------------------------------------
 
 @app.post("/analyze")
-async def analyze_document(
-    request: AnalysisRequest,
-):
-
+async def analyze_document(request: AnalysisRequest):
     try:
-
         service = DocumentAnalysisService()
 
         result = await service.analyze(
@@ -253,53 +310,43 @@ async def analyze_document(
         return {
             "success": True,
             "file_id": request.file_id,
-            "analysis": result.model_dump(),
+            "analysis": result.model_dump(mode="json"),
         }
 
-    except FileNotFoundError as e:
-
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except ValueError as e:
-
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except RuntimeError as e:
-
+    except RuntimeError as exc:
         raise HTTPException(
             status_code=409,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except Exception as e:
-
-        print(
-            f"Document analysis failed: {e}"
-        )
+    except Exception as exc:
+        logger.exception("Document analysis failed.")
 
         raise HTTPException(
             status_code=500,
-            detail="Document analysis failed.",
-        )
+            detail="Document analysis failed. Check backend logs.",
+        ) from exc
 
 
-# =====================================================
-# Workflow / Action Agent — Agent 3
-# =====================================================
+# ---------------------------------------------------------
+# Agent 3: workflow generation
+# ---------------------------------------------------------
 
 @app.post("/workflow")
-async def create_workflow(
-    request: WorkflowRequest,
-):
-
+async def create_workflow(request: WorkflowRequest):
     try:
-
         service = WorkflowService()
 
         result = await service.create_plan(
@@ -310,154 +357,86 @@ async def create_workflow(
         return {
             "success": True,
             "file_id": request.file_id,
-            "workflow": result.model_dump(),
+            "workflow": result.model_dump(mode="json"),
         }
 
-    except FileNotFoundError as e:
-
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=404,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except ValueError as e:
-
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except RuntimeError as e:
-
+    except RuntimeError as exc:
         raise HTTPException(
             status_code=409,
-            detail=str(e),
-        )
+            detail=str(exc),
+        ) from exc
 
-    except Exception as e:
-
-        print(
-            f"Workflow generation failed: {e}"
-        )
+    except Exception as exc:
+        logger.exception("Workflow generation failed.")
 
         raise HTTPException(
             status_code=500,
-            detail="Workflow generation failed.",
-        )
+            detail="Workflow generation failed. Check backend logs.",
+        ) from exc
 
 
-# =====================================================
-# Get All Documents
-# =====================================================
+# ---------------------------------------------------------
+# List all documents
+# ---------------------------------------------------------
 
 @app.get("/files")
 async def get_all_files():
+    documents = []
 
-    result = []
+    async for document in files_collection.find().sort(
+        "created_at", -1
+    ):
+        documents.append(_public_file(document))
 
-    async for doc in files_collection.find():
-
-        doc["_id"] = str(
-            doc["_id"]
-        )
-
-        if "embedding" in doc:
-
-            doc["embedding_dimension"] = len(
-                doc["embedding"]
-            )
-
-            del doc["embedding"]
-
-        result.append(doc)
-
-    return jsonable_encoder(
-        result
-    )
+    return documents
 
 
-# =====================================================
-# Get Single Document
-# =====================================================
+# ---------------------------------------------------------
+# Get a single document
+# ---------------------------------------------------------
 
 @app.get("/files/{file_id}")
-async def get_file(
-    file_id: str,
-):
+async def get_file(file_id: str):
+    object_id = _object_id(file_id)
 
-    try:
-
-        object_id = ObjectId(
-            file_id
-        )
-
-    except Exception:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid file_id.",
-        )
-
-    doc = await files_collection.find_one(
-        {
-            "_id": object_id
-        }
+    document = await files_collection.find_one(
+        {"_id": object_id}
     )
 
-    if doc is None:
-
+    if document is None:
         raise HTTPException(
             status_code=404,
             detail="File not found.",
         )
 
-    doc["_id"] = str(
-        doc["_id"]
-    )
-
-    if "embedding" in doc:
-
-        doc["embedding_dimension"] = len(
-            doc["embedding"]
-        )
-
-        del doc["embedding"]
-
-    return jsonable_encoder(
-        doc
-    )
+    return _public_file(document)
 
 
-# =====================================================
-# Document Processing Status
-# =====================================================
+# ---------------------------------------------------------
+# Processing status
+# ---------------------------------------------------------
 
 @app.get("/status/{file_id}")
-async def get_status(
-    file_id: str,
-):
+async def get_status(file_id: str):
+    object_id = _object_id(file_id)
 
-    try:
-
-        object_id = ObjectId(
-            file_id
-        )
-
-    except Exception:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid file_id.",
-        )
-
-    doc = await files_collection.find_one(
-        {
-            "_id": object_id
-        }
+    document = await files_collection.find_one(
+        {"_id": object_id}
     )
 
-    if doc is None:
-
+    if document is None:
         raise HTTPException(
             status_code=404,
             detail="File not found.",
@@ -465,23 +444,10 @@ async def get_status(
 
     return {
         "file_id": file_id,
-        "status": doc.get(
-            "status",
-            FileStatus.FAILED,
-        ),
-        "filename": doc.get(
-            "filename"
-        ),
-        "total_pages": doc.get(
-            "total_pages",
-            0,
-        ),
-        "total_chunks": doc.get(
-            "total_chunks",
-            0,
-        ),
-        "processing_time": doc.get(
-            "processing_time",
-            0,
-        ),
+        "status": document.get("status", FileStatus.FAILED),
+        "filename": document.get("filename"),
+        "total_pages": document.get("total_pages", 0),
+        "total_chunks": document.get("total_chunks", 0),
+        "processing_time": document.get("processing_time", 0),
+        "error": document.get("processing_error"),
     }

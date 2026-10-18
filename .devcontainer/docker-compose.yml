@@ -6,6 +6,11 @@ services:
 
     command: sleep infinity
 
+    # Use the Compose service name for Valkey inside the container.
+    # This takes precedence over an old REDIS_URL setting in .env.
+    environment:
+      REDIS_URL: redis://valkey:6379/0
+
     working_dir: /workspaces/full-rag
 
     volumes:

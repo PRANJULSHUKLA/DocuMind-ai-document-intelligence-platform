@@ -3,7 +3,7 @@ from google.genai import types
 from app.constants.agent import AgentConfig
 from app.constants.models import GeminiModels
 
-from app.llm.gemini import client
+from app.llm.gemini import generate_content_with_fallback
 
 from app.prompts.document_analysis import (
     DocumentAnalysisPrompt,
@@ -57,7 +57,7 @@ class DocumentIntelligenceAgent:
         # 4. Gemini structured generation
         # ==================================================
 
-        response = client.models.generate_content(
+        response = generate_content_with_fallback(
             model=self.model,
             contents=prompt,
             config=types.GenerateContentConfig(

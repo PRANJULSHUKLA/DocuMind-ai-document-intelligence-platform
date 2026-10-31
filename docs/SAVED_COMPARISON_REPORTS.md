@@ -1,5 +1,22 @@
 # Reviewed comparison snapshots and exports
 
+## Offline demonstration (no credentials or API spending)
+
+From this branch root run:
+
+```sh
+python scripts/demo_evidence_review.py --output-dir /tmp/documind-synthetic-review
+```
+
+Use a new output directory; the script refuses to overwrite existing files.
+It disables dotenv and networking, creates two synthetic source PDFs, calculates
+their actual byte hashes, supplies known-context OCR fixture text to production
+extraction/comparison functions, and writes facts/comparison/report JSON plus a
+paginated PDF export. It checks every quotation offset and demonstrates an amount
+difference, a possible disclosure contradiction and abstention on a condition.
+This is a known-context module demonstration, not live worker/OCR/Atlas validation.
+The report notice and output metadata retain that distinction.
+
 In Collections, use bounded obligation comparison, review the evidence and
 limitations, enter a report title and explicitly confirm review. Click **Save
 reviewed comparison**, then **Refresh saved reports** to open it. JSON/PDF export

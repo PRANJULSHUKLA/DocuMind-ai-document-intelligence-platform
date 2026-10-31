@@ -141,3 +141,24 @@ def test_new_endpoints_require_authentication(api):
         assert api.post('/comparison-reports/collection/project', json={}).status_code == 401
     finally:
         server.app.dependency_overrides[current_identity] = override
+
+
+def test_offline_demo_produces_real_pdf_hashes_and_validated_examples(tmp_path):
+    import hashlib
+    import json
+    from pathlib import Path
+    import subprocess
+    import sys
+    output = tmp_path / 'synthetic-demo'
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run([sys.executable, 'scripts/demo_evidence_review.py', '--output-dir', str(output)], cwd=root, capture_output=True, text=True, timeout=30, check=True)
+    metrics = json.loads(result.stdout)
+    assert metrics['provider_requests'] == 0
+    assert metrics['semantic_examples'] == 3
+    assert metrics['exact_quote_checks_passed'] == metrics['facts']
+    report = json.loads((output / 'reviewed-report.json').read_text())
+    for source in report['snapshot']['documents']:
+        assert hashlib.sha256((output / source['filename']).read_bytes()).hexdigest() == source['content_sha256']
+    text = '\n'.join(page.extract_text() for page in PdfReader(output / 'reviewed-report.pdf').pages)
+    assert 'No live ingestion' in text
+    assert 'disclose records' in text

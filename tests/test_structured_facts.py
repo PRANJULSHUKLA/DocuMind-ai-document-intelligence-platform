@@ -46,6 +46,13 @@ def test_missing_ambiguous_dates_truncated_clauses_and_scale_are_not_invented():
     assert [f['value']['amount'] for f in facts if f['kind'] == 'amount'] == ['100', '200']
 
 
+def test_long_literal_amounts_are_not_rounded_and_qualifiers_are_retained():
+    amount = '123456789012345678901234567890123456789.10'
+    facts = service.extract_chunk(chunk(f'Buyer must pay USD {amount} upon approval.'), DOC)
+    assert next(f['value']['amount'] for f in facts if f['kind'] == 'amount') == amount[:-1]
+    assert all(f['conditions'] == 'upon approval.' for f in facts)
+
+
 async def setup(monkeypatch, rows, doc=None):
     doc = DOC if doc is None else doc
     monkeypatch.setattr(service.collections, 'context', AsyncMock(return_value=({'revision': 1}, [(ID, doc)], [])))

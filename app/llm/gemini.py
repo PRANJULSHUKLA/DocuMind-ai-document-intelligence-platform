@@ -4,6 +4,8 @@ import logging
 import random
 import time
 
+from app.errors import GenerationUnavailableError
+
 from dotenv import load_dotenv
 from google import genai
 from google.genai.errors import APIError
@@ -126,7 +128,7 @@ def generate_content_with_fallback(
         # Only continue to the next model after retryable failures
         # have exhausted the retry budget for this model.
 
-    raise RuntimeError(
+    raise GenerationUnavailableError(
         "Gemini generation failed for all configured models. "
         "Check model availability, API quota, and backend logs."
     ) from last_error

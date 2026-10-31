@@ -14,6 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.constants.status import FileStatus
 from app.auth import Identity, current_identity
+from app.errors import GenerationUnavailableError
 from app.schemas.file import FileSchema
 from app.schemas.requests import (
     ChatRequest,
@@ -294,6 +295,9 @@ async def chat(request: ChatRequest, identity: Identity = Depends(current_identi
             detail=str(exc),
         ) from exc
 
+    except GenerationUnavailableError:
+        raise HTTPException(503, "Generation is temporarily unavailable. Please try again later.") from None
+
     except RuntimeError as exc:
         raise HTTPException(
             status_code=409,
@@ -342,6 +346,9 @@ async def analyze_document(request: AnalysisRequest, identity: Identity = Depend
             detail=str(exc),
         ) from exc
 
+    except GenerationUnavailableError:
+        raise HTTPException(503, "Generation is temporarily unavailable. Please try again later.") from None
+
     except RuntimeError as exc:
         raise HTTPException(
             status_code=409,
@@ -389,6 +396,9 @@ async def create_workflow(request: WorkflowRequest, identity: Identity = Depends
             status_code=400,
             detail=str(exc),
         ) from exc
+
+    except GenerationUnavailableError:
+        raise HTTPException(503, "Generation is temporarily unavailable. Please try again later.") from None
 
     except RuntimeError as exc:
         raise HTTPException(

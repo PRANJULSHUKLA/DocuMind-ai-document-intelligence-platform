@@ -24,7 +24,7 @@ import UploadDocument from "./components/UploadDocument";
 import ProcessingPipeline from "./components/ProcessingPipeline";
 import DocumentIntelligence from "./components/DocumentIntelligence";
 import WorkflowPanel from "./components/WorkFlowPanel";
-import AIAssistant from "./components/AiAssistant";
+import DocumentWorkspace from "./components/DocumentWorkspace";
 
 import {
   analyzeDocument,
@@ -52,6 +52,7 @@ const VIEWS = {
 ===================================================== */
 
 export default function App() {
+  const [readingSessions, setReadingSessions] = useState({});
   const [
     activeView,
     setActiveView,
@@ -202,7 +203,7 @@ export default function App() {
 
   function selectDocument(
     document,
-    targetView = VIEWS.INTELLIGENCE
+    targetView = VIEWS.ASSISTANT
   ) {
     if (!document) {
       return;
@@ -272,7 +273,7 @@ export default function App() {
     setPageError("");
 
     setActiveView(
-      VIEWS.INTELLIGENCE
+      VIEWS.ASSISTANT
     );
 
     setRefreshKey(
@@ -1047,32 +1048,11 @@ export default function App() {
                     )
                   }
                 />
-              ) : activeDocument.status !==
-                "completed" ? (
-                <EmptyState
-                  icon={
-                    <Loader2
-                      size={23}
-                    />
-                  }
-                  title="Document is still processing"
-                  description="The AI Assistant becomes available after document processing and embeddings are complete."
-                  actionLabel="Check document"
-                  onAction={() =>
-                    navigate(
-                      VIEWS.DOCUMENTS
-                    )
-                  }
-                />
               ) : (
-                <AIAssistant
-                  fileId={
-                    activeDocument.file_id
-                  }
-                  filename={
-                    activeDocument.filename
-                  }
-                />
+                <DocumentWorkspace key={activeDocument.file_id} document={activeDocument}
+                  session={readingSessions[activeDocument.file_id] || {}}
+                  onSessionChange={updater => setReadingSessions(previous => ({ ...previous,
+                    [activeDocument.file_id]: updater(previous[activeDocument.file_id] || {}) }))} />
               )}
 
             </section>

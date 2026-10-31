@@ -169,3 +169,8 @@ citation verification, production quotas, backups, or persistent action executio
 Similarity thresholds require evaluation against representative documents.
 See [implementation status](docs/IMPLEMENTATION_STATUS.md) for validation and
 remaining operational work. Do not treat passing offline tests as production certification.
+
+### Evidence Viewer (feature branch)
+
+See [Evidence Viewer setup and security design](docs/EVIDENCE_VIEWER.md) for the
+private Read & Ask workspace, provenance behavior, and browser verification.

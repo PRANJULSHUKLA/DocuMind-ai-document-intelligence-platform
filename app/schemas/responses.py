@@ -16,6 +16,12 @@ class FileMetadataResponse(BaseModel):
 
 
 class Source(BaseModel):
+    file_id: str | None = None
+    source_id: str | None = None
+    processing_run_id: str | None = None
+    content_sha256: str | None = None
+    excerpt: str | None = None
+
 
     filename: str | None = Field(
         default=None,

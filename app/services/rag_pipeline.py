@@ -10,6 +10,7 @@ from app.constants.models import GeminiModels
 from app.constants.rag import RAGConfig
 from app.llm.gemini import generate_content_with_fallback
 from app.services.context_builder import ContextBuilder
+from app.services.document_view import source_fields
 from app.services.retrieval_service import RetrievalService
 
 logger = logging.getLogger("documind.rag")
@@ -106,7 +107,7 @@ Write a complete, evidence-based answer now.
             page_number = chunk.get("page_number")
             chunk_index = chunk.get("chunk_index")
 
-            key = (filename, page_number, chunk_index)
+            key = (chunk.get("file_id"), filename, page_number, chunk_index)
 
             if key in seen:
                 continue
@@ -120,6 +121,8 @@ Write a complete, evidence-based answer now.
 
             sources.append(
                 {
+                    **source_fields(chunk),
+                    "excerpt": str(chunk.get("text") or ""),
                     "filename": filename,
                     "page_number": page_number,
                     "chunk_index": (

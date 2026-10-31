@@ -8,6 +8,7 @@ class ChunkSchema(BaseModel):
     # Document information
     file_id: str
     workspace_id: str
+    content_sha256: str | None = None
     filename: str
     page_number: int
     chunk_index: int

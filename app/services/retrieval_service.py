@@ -45,7 +45,9 @@ class RetrievalService:
             },
             {
                 "$project": {
-                    "_id": 0,
+                    "_id": 1,
+                    "processing_run_id": 1,
+                    "content_sha256": 1,
                     "file_id": 1,
                     "filename": 1,
                     "page_number": 1,
@@ -76,6 +78,9 @@ class RetrievalService:
 
         return [
             {
+                "_id": document.get("_id"),
+                "processing_run_id": document.get("processing_run_id"),
+                "content_sha256": document.get("content_sha256"),
                 "file_id": document.get("file_id"),
                 "filename": document.get("filename"),
                 "page_number": document.get("page_number"),

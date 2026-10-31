@@ -28,6 +28,8 @@ def extraction(left, right):
     ('Buyer must pay by 2026-12-01.', 'Buyer must pay by 2026-12-02.', 'supported_difference'),
     ('Buyer must pay USD 100.', 'Seller must pay USD 100.', 'missing_information'),
     ('Buyer must pay USD 100 unless approved.', 'Buyer must pay USD 100 unless approved.', 'insufficient_evidence'),
+    ('Buyer must pay USD 100 upon approval.', 'Buyer shall not pay USD 100 upon approval.', 'insufficient_evidence'),
+    ('Buyer must pay USD 123456789012345678901234567890.01.', 'Buyer shall pay USD 123456789012345678901234567890.02.', 'supported_difference'),
     ('Buyer must pay USD 100. Buyer must not pay USD 100.', 'Buyer shall pay USD 100.', 'insufficient_evidence'),
     ('Payment could possibly be required.', 'A transfer is expected.', 'insufficient_evidence'),
 ])
@@ -53,6 +55,11 @@ def test_stale_or_fabricated_provenance_rejected():
     broken = deepcopy(data)
     broken['facts'][0]['quotation'] = 'Invented'
     with pytest.raises(HTTPException): compare_facts(broken, 'Focus')
+
+
+def test_retained_literal_comparison_does_not_assert_qualified_obligation_conflict():
+    result = compare_facts(extraction('Buyer must pay USD 100 upon approval.', 'Buyer shall not pay USD 100 upon approval.'), 'Payment')
+    assert result['summary']['possible_contradiction'] == 0
 
 
 def test_authenticated_route_uses_workspace(api, monkeypatch):

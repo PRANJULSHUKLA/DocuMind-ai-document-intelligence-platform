@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "description": "Human-authored synthetic gold. Includes intentional negative controls.",
+  "cases": [
+    {
+      "id": "single-amount",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "a1"
+      ],
+      "allowed_file_ids": [
+        "a"
+      ],
+      "supported_claims": [
+        {
+          "text": "The first amount is USD 100.",
+          "source_ids": [
+            "a1"
+          ]
+        }
+      ],
+      "expect_abstention": false
+    },
+    {
+      "id": "cross-document-difference",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        },
+        {
+          "source_id": "b2",
+          "file_id": "b",
+          "page_number": 2,
+          "processing_run_id": "published-b",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "text": "Buyer shall pay USD 200 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "a1",
+        "b2"
+      ],
+      "allowed_file_ids": [
+        "a",
+        "b"
+      ],
+      "supported_claims": [
+        {
+          "text": "The amounts differ: USD 100 and USD 200.",
+          "source_ids": [
+            "a1",
+            "b2"
+          ]
+        }
+      ],
+      "expect_abstention": false
+    },
+    {
+      "id": "missing-vat",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [],
+      "allowed_file_ids": [
+        "a"
+      ],
+      "supported_claims": [],
+      "expect_abstention": true
+    },
+    {
+      "id": "conflicting-amount-no-single-answer",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        },
+        {
+          "source_id": "b2",
+          "file_id": "b",
+          "page_number": 2,
+          "processing_run_id": "published-b",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "text": "Buyer shall pay USD 200 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "a1",
+        "b2"
+      ],
+      "allowed_file_ids": [
+        "a",
+        "b"
+      ],
+      "supported_claims": [],
+      "expect_abstention": true
+    },
+    {
+      "id": "retrieval-miss",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        },
+        {
+          "source_id": "b2",
+          "file_id": "b",
+          "page_number": 2,
+          "processing_run_id": "published-b",
+          "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "text": "Buyer shall pay USD 200 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "b2"
+      ],
+      "allowed_file_ids": [
+        "a",
+        "b"
+      ],
+      "supported_claims": [],
+      "expect_abstention": false
+    },
+    {
+      "id": "wrong-page",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "a1"
+      ],
+      "allowed_file_ids": [
+        "a"
+      ],
+      "supported_claims": [
+        {
+          "text": "The first amount is USD 100.",
+          "source_ids": [
+            "a1"
+          ]
+        }
+      ],
+      "expect_abstention": false
+    },
+    {
+      "id": "unsupported-claim",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "a1"
+      ],
+      "allowed_file_ids": [
+        "a"
+      ],
+      "supported_claims": [],
+      "expect_abstention": false
+    },
+    {
+      "id": "cross-document-leak",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        },
+        {
+          "source_id": "foreign",
+          "file_id": "outside",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "a1"
+      ],
+      "allowed_file_ids": [
+        "a"
+      ],
+      "supported_claims": [
+        {
+          "text": "The first amount is USD 100.",
+          "source_ids": [
+            "a1"
+          ]
+        }
+      ],
+      "expect_abstention": false
+    },
+    {
+      "id": "stale-version",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "a1"
+      ],
+      "allowed_file_ids": [
+        "a"
+      ],
+      "supported_claims": [
+        {
+          "text": "The first amount is USD 100.",
+          "source_ids": [
+            "a1"
+          ]
+        }
+      ],
+      "expect_abstention": false
+    },
+    {
+      "id": "invented-quotation",
+      "sources": [
+        {
+          "source_id": "a1",
+          "file_id": "a",
+          "page_number": 1,
+          "processing_run_id": "published-a",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "Buyer must pay USD 100 by December 1, 2026."
+        }
+      ],
+      "relevant_source_ids": [
+        "a1"
+      ],
+      "allowed_file_ids": [
+        "a"
+      ],
+      "supported_claims": [
+        {
+          "text": "The first amount is USD 100.",
+          "source_ids": [
+            "a1"
+          ]
+        }
+      ],
+      "expect_abstention": false
+    }
+  ]
+}

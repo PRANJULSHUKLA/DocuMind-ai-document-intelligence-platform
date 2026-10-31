@@ -1,0 +1,231 @@
+[
+  {
+    "id": "single-amount",
+    "retrieved_source_ids": [
+      "a1"
+    ],
+    "citations": [
+      {
+        "source_id": "a1",
+        "file_id": "a",
+        "page_number": 1,
+        "processing_run_id": "published-a",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "quote": "Buyer must pay USD 100 by December 1, 2026."
+      }
+    ],
+    "claims": [
+      {
+        "text": "The first amount is USD 100.",
+        "source_ids": [
+          "a1"
+        ]
+      }
+    ],
+    "abstained": false
+  },
+  {
+    "id": "cross-document-difference",
+    "retrieved_source_ids": [
+      "a1",
+      "b2"
+    ],
+    "citations": [
+      {
+        "source_id": "a1",
+        "file_id": "a",
+        "page_number": 1,
+        "processing_run_id": "published-a",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "quote": "Buyer must pay USD 100 by December 1, 2026."
+      },
+      {
+        "source_id": "b2",
+        "file_id": "b",
+        "page_number": 2,
+        "processing_run_id": "published-b",
+        "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "quote": "Buyer shall pay USD 200 by December 1, 2026."
+      }
+    ],
+    "claims": [
+      {
+        "text": "The amounts differ: USD 100 and USD 200.",
+        "source_ids": [
+          "a1",
+          "b2"
+        ]
+      }
+    ],
+    "abstained": false
+  },
+  {
+    "id": "missing-vat",
+    "retrieved_source_ids": [],
+    "citations": [],
+    "claims": [],
+    "abstained": true
+  },
+  {
+    "id": "conflicting-amount-no-single-answer",
+    "retrieved_source_ids": [
+      "a1",
+      "b2"
+    ],
+    "citations": [
+      {
+        "source_id": "a1",
+        "file_id": "a",
+        "page_number": 1,
+        "processing_run_id": "published-a",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "quote": "Buyer must pay USD 100 by December 1, 2026."
+      },
+      {
+        "source_id": "b2",
+        "file_id": "b",
+        "page_number": 2,
+        "processing_run_id": "published-b",
+        "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "quote": "Buyer shall pay USD 200 by December 1, 2026."
+      }
+    ],
+    "claims": [],
+    "abstained": true
+  },
+  {
+    "id": "retrieval-miss",
+    "retrieved_source_ids": [
+      "a1"
+    ],
+    "citations": [],
+    "claims": [],
+    "abstained": false
+  },
+  {
+    "id": "wrong-page",
+    "retrieved_source_ids": [
+      "a1"
+    ],
+    "citations": [
+      {
+        "source_id": "a1",
+        "file_id": "a",
+        "page_number": 9,
+        "processing_run_id": "published-a",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "quote": "Buyer must pay USD 100 by December 1, 2026."
+      }
+    ],
+    "claims": [
+      {
+        "text": "The first amount is USD 100.",
+        "source_ids": [
+          "a1"
+        ]
+      }
+    ],
+    "abstained": false
+  },
+  {
+    "id": "unsupported-claim",
+    "retrieved_source_ids": [
+      "a1"
+    ],
+    "citations": [
+      {
+        "source_id": "a1",
+        "file_id": "a",
+        "page_number": 1,
+        "processing_run_id": "published-a",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "quote": "Buyer must pay USD 100 by December 1, 2026."
+      }
+    ],
+    "claims": [
+      {
+        "text": "The VAT rate is 18%.",
+        "source_ids": [
+          "a1"
+        ]
+      }
+    ],
+    "abstained": false
+  },
+  {
+    "id": "cross-document-leak",
+    "retrieved_source_ids": [
+      "a1",
+      "foreign"
+    ],
+    "citations": [
+      {
+        "source_id": "a1",
+        "file_id": "a",
+        "page_number": 1,
+        "processing_run_id": "published-a",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "quote": "Buyer must pay USD 100 by December 1, 2026."
+      }
+    ],
+    "claims": [
+      {
+        "text": "The first amount is USD 100.",
+        "source_ids": [
+          "a1"
+        ]
+      }
+    ],
+    "abstained": false
+  },
+  {
+    "id": "stale-version",
+    "retrieved_source_ids": [
+      "a1"
+    ],
+    "citations": [
+      {
+        "source_id": "a1",
+        "file_id": "a",
+        "page_number": 1,
+        "processing_run_id": "old",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "quote": "Buyer must pay USD 100 by December 1, 2026."
+      }
+    ],
+    "claims": [
+      {
+        "text": "The first amount is USD 100.",
+        "source_ids": [
+          "a1"
+        ]
+      }
+    ],
+    "abstained": false
+  },
+  {
+    "id": "invented-quotation",
+    "retrieved_source_ids": [
+      "a1"
+    ],
+    "citations": [
+      {
+        "source_id": "a1",
+        "file_id": "a",
+        "page_number": 1,
+        "processing_run_id": "published-a",
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "quote": "USD 999"
+      }
+    ],
+    "claims": [
+      {
+        "text": "The first amount is USD 100.",
+        "source_ids": [
+          "a1"
+        ]
+      }
+    ],
+    "abstained": false
+  }
+]

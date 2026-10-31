@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "cases": 10,
+  "counts": {
+    "relevant": 10,
+    "expected": 11,
+    "retrieved": 12,
+    "correct_citations": 7,
+    "citations": 10,
+    "supported_claims": 3,
+    "claims": 7,
+    "isolated": 9,
+    "scoped": 10,
+    "expected_abstentions": 2,
+    "abstentions": 2
+  },
+  "metrics": {
+    "retrieval_recall": 0.9091,
+    "retrieval_precision": 0.8333,
+    "citation_correctness": 0.7,
+    "annotated_claim_support": 0.4286,
+    "scope_isolation": 0.9,
+    "missing_or_conflicting_abstention": 1.0
+  },
+  "observed_latency_ms_mean": null,
+  "observed_usage": [],
+  "details": [
+    {
+      "id": "single-amount",
+      "recall": 1.0,
+      "supported_claims": 1,
+      "claims": 1,
+      "scope_ok": true
+    },
+    {
+      "id": "cross-document-difference",
+      "recall": 1.0,
+      "supported_claims": 1,
+      "claims": 1,
+      "scope_ok": true
+    },
+    {
+      "id": "missing-vat",
+      "recall": null,
+      "supported_claims": 0,
+      "claims": 0,
+      "scope_ok": true
+    },
+    {
+      "id": "conflicting-amount-no-single-answer",
+      "recall": 1.0,
+      "supported_claims": 0,
+      "claims": 0,
+      "scope_ok": true
+    },
+    {
+      "id": "retrieval-miss",
+      "recall": 0.0,
+      "supported_claims": 0,
+      "claims": 0,
+      "scope_ok": true
+    },
+    {
+      "id": "wrong-page",
+      "recall": 1.0,
+      "supported_claims": 0,
+      "claims": 1,
+      "scope_ok": true
+    },
+    {
+      "id": "unsupported-claim",
+      "recall": 1.0,
+      "supported_claims": 0,
+      "claims": 1,
+      "scope_ok": true
+    },
+    {
+      "id": "cross-document-leak",
+      "recall": 1.0,
+      "supported_claims": 1,
+      "claims": 1,
+      "scope_ok": false
+    },
+    {
+      "id": "stale-version",
+      "recall": 1.0,
+      "supported_claims": 0,
+      "claims": 1,
+      "scope_ok": true
+    },
+    {
+      "id": "invented-quotation",
+      "recall": 1.0,
+      "supported_claims": 0,
+      "claims": 1,
+      "scope_ok": true
+    }
+  ],
+  "limitations": [
+    "Exact gold annotations measure this corpus only; not general semantic entailment.",
+    "Recorded/replay observations do not measure live Atlas or Gemini quality.",
+    "Missing latency/usage remains null or empty; no cost is estimated."
+  ],
+  "evaluator_runtime_ms": 0.319
+}

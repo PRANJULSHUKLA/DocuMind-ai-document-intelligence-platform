@@ -25,3 +25,19 @@ test('creates collection and preserves independent upload failures', async () =>
   await screen.findByText(/two.pdf: failed/)
   expect(documents.uploadDocument).toHaveBeenCalledTimes(2)
 })
+
+
+test('collection forms and comparison panels have distinct sibling keys', async () => {
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+  collections.listCollections.mockResolvedValue([{ id: 'project', name: 'Contracts', file_ids: [], revision: 2 }])
+  documents.getDocuments.mockResolvedValue([])
+  const user = userEvent.setup()
+  try {
+    render(<CollectionsWorkspace />)
+    await screen.findByRole('option', { name: 'Contracts' })
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Active collection' }), 'project')
+    await screen.findByRole('region', { name: 'Document comparison' })
+    expect(screen.getAllByRole('button', { name: 'Rename', exact: true })).toHaveLength(1)
+    expect(errors.mock.calls.filter(call => String(call[0]).includes('same key'))).toEqual([])
+  } finally { errors.mockRestore() }
+})

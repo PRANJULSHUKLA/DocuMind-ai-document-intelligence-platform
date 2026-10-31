@@ -94,3 +94,9 @@ class Extract(BaseModel):
 async def extract_facts(collection_id: str, body: Extract, identity: Identity = Depends(current_identity)):
     from app.services.structured_facts import extract
     return await mapped(extract(collection_id, identity.workspace_id, body.file_ids))
+
+
+@router.post('/{collection_id}/compare-semantic')
+async def compare_semantic(collection_id: str, body: Compare, identity: Identity = Depends(current_identity)):
+    from app.services.semantic_comparison import compare as run
+    return await mapped(run(collection_id, identity.workspace_id, body.file_ids, body.focus))

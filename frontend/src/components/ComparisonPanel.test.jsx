@@ -18,3 +18,17 @@ test('requires two documents and renders evidence-backed conservative findings',
   expect(open).toHaveBeenCalledWith(source)
   expect(screen.getByText(/Full-document absence is unverified/)).toBeVisible()
 })
+
+test('bounded semantic mode is explicit and shows structured evidence and limits', async () => {
+  const user = userEvent.setup()
+  compareCollection.mockResolvedValue({ summary: {}, limitations: [], sources: [], findings: [], extraction_limitations: [{ file_id: 'a', reason: 'chunk_limit_reached' }], extracted_facts: [{ fact_id: 'f1', kind: 'amount', value: { amount: '100', currency: 'USD' }, uncertainty: 'literal_only', quotation: 'USD 100.', source: { filename: 'A.pdf', page_number: 1 } }] })
+  render(<ComparisonPanel collectionId="project" documents={[{ _id: 'a', filename: 'A.pdf', status: 'completed' }, { _id: 'b', filename: 'B.pdf', status: 'completed' }]} onSourceSelect={vi.fn()} />)
+  await user.click(screen.getByLabelText('Use validated obligation comparison (bounded)'))
+  await user.click(screen.getByLabelText('A.pdf · completed'))
+  await user.click(screen.getByLabelText('B.pdf · completed'))
+  await user.click(screen.getByRole('button', { name: 'Compare selected documents' }))
+  await screen.findByText(/Some evidence was skipped/)
+  expect(compareCollection.mock.lastCall[4]).toBe(true)
+  await user.click(screen.getByText('Review structured evidence facts (1)'))
+  expect(screen.getByText(/literal_only/)).toBeVisible()
+})

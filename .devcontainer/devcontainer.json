@@ -12,7 +12,7 @@
         }
     },
 
-    "postCreateCommand": "python -m pip install -r requirements.txt && npm --prefix frontend install",
+    "postCreateCommand": "python -m pip install -r requirements-dev.txt && npm --prefix frontend ci",
 
     "customizations": {
         "vscode": {

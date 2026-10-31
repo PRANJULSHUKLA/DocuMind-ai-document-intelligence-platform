@@ -1,5 +1,6 @@
 
 import axios from "axios";
+import { accessToken } from "./auth";
 
 const configuredBaseUrl =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -12,9 +13,18 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use(async (config) => {
+  const token = await accessToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401) {
+      window.dispatchEvent(new Event('documind:session-expired'));
+    }
     if (error.code === "ECONNABORTED") {
       error.message =
         "The request timed out. The server may still be processing your document.";

@@ -4,18 +4,20 @@ import logging
 from pathlib import Path
 
 from bson import ObjectId
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
 from app.constants.status import FileStatus
+from app.auth import Identity, current_identity
 from app.schemas.file import FileSchema
 from app.schemas.requests import (
     ChatRequest,
     AnalysisRequest,
     WorkflowRequest,
 )
-from app.schemas.responses import ChatResponse
+from app.schemas.responses import ChatResponse, FileMetadataResponse
 
 from app.services.document_analysis import DocumentAnalysisService
 from app.services.workflow_service import WorkflowService
@@ -32,9 +34,7 @@ from app.queue.workers import process_file
 
 logger = logging.getLogger("documind")
 
-UPLOAD_DIR = Path(
-    os.getenv("UPLOAD_DIR", "/mnt/uploads")
-).resolve()
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(Path(__file__).resolve().parent.parent / "uploads"))).resolve()
 
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
@@ -59,13 +59,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
-    allow_origin_regex=r"https://.*\.app\.github\.dev",
+    allow_origins=[origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -98,22 +94,21 @@ async def _mark_failed(file_id: str, message: str) -> None:
                 }
             },
         )
-    except Exception:
-        logger.exception(
-            "Could not mark document %s as failed.",
-            file_id,
-        )
+    except Exception as exc:
+        logger.error("Could not mark document failed: file_id=%s error_type=%s", file_id, type(exc).__name__)
+
+
+PUBLIC_FILE_FIELDS = {
+    "filename", "status", "document_type", "language", "total_pages",
+    "total_chunks", "processing_time", "created_at", "processing_version",
+}
 
 
 def _public_file(doc: dict) -> dict:
-    """Convert MongoDB fields to JSON-safe values."""
-    doc = dict(doc)
-    doc["_id"] = str(doc["_id"])
-
-    # Never expose stored vectors in document-list responses.
-    doc.pop("embedding", None)
-
-    return jsonable_encoder(doc)
+    """Allowlist metadata so stored content and internal fields stay private."""
+    result = {key: value for key, value in doc.items() if key in PUBLIC_FILE_FIELDS}
+    result["_id"] = str(doc["_id"])
+    return jsonable_encoder(result)
 
 
 # ---------------------------------------------------------
@@ -129,12 +124,17 @@ async def health():
     }
 
 
+@app.get("/session")
+async def session(identity: Identity = Depends(current_identity)):
+    return {"workspace_id": identity.workspace_id, "name": identity.name}
+
+
 # ---------------------------------------------------------
 # Upload document
 # ---------------------------------------------------------
 
 @app.post("/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload(file: UploadFile = File(...), identity: Identity = Depends(current_identity)):
     file_id = None
     saved_path = None
 
@@ -191,6 +191,7 @@ async def upload(file: UploadFile = File(...)):
         record = FileSchema(
             filename=filename,
             status=FileStatus.SAVING,
+            workspace_id=identity.workspace_id,
         )
 
         inserted = await files_collection.insert_one(
@@ -207,7 +208,7 @@ async def upload(file: UploadFile = File(...)):
         document_dir.mkdir(parents=True, exist_ok=True)
 
         saved_path = document_dir / filename
-        saved_path.write_bytes(content)
+        await run_in_threadpool(saved_path.write_bytes, content)
 
         await files_collection.update_one(
             {"_id": ObjectId(file_id)},
@@ -219,7 +220,8 @@ async def upload(file: UploadFile = File(...)):
         )
 
         # Use an explicit queue and timeout.
-        q.enqueue(
+        await run_in_threadpool(
+            q.enqueue,
             process_file,
             file_id,
             str(saved_path),
@@ -238,10 +240,15 @@ async def upload(file: UploadFile = File(...)):
         raise
 
     except Exception as exc:
-        logger.exception("Document upload failed.")
+        logger.error("Document upload failed: %s", type(exc).__name__)
 
         if file_id:
-            await _mark_failed(file_id, str(exc))
+            await _mark_failed(file_id, "Upload setup failed. Please try again.")
+        if saved_path:
+            try:
+                await run_in_threadpool(saved_path.unlink, missing_ok=True)
+            except OSError:
+                logger.warning("Could not remove failed upload: file_id=%s", file_id)
 
         raise HTTPException(
             status_code=500,
@@ -257,13 +264,14 @@ async def upload(file: UploadFile = File(...)):
 # ---------------------------------------------------------
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, identity: Identity = Depends(current_identity)):
     try:
         service = KnowledgeService()
 
         return await service.ask(
             file_id=request.file_id,
             question=request.question,
+            workspace_id=identity.workspace_id,
         )
 
     except FileNotFoundError as exc:
@@ -285,7 +293,7 @@ async def chat(request: ChatRequest):
         ) from exc
 
     except Exception as exc:
-        logger.exception("Chat request failed.")
+        logger.error("Chat request failed: %s", type(exc).__name__)
 
         raise HTTPException(
             status_code=500,
@@ -298,13 +306,14 @@ async def chat(request: ChatRequest):
 # ---------------------------------------------------------
 
 @app.post("/analyze")
-async def analyze_document(request: AnalysisRequest):
+async def analyze_document(request: AnalysisRequest, identity: Identity = Depends(current_identity)):
     try:
         service = DocumentAnalysisService()
 
         result = await service.analyze(
             file_id=request.file_id,
             analysis_type=request.analysis_type,
+            workspace_id=identity.workspace_id,
         )
 
         return {
@@ -332,7 +341,7 @@ async def analyze_document(request: AnalysisRequest):
         ) from exc
 
     except Exception as exc:
-        logger.exception("Document analysis failed.")
+        logger.error("Document analysis failed: %s", type(exc).__name__)
 
         raise HTTPException(
             status_code=500,
@@ -345,13 +354,14 @@ async def analyze_document(request: AnalysisRequest):
 # ---------------------------------------------------------
 
 @app.post("/workflow")
-async def create_workflow(request: WorkflowRequest):
+async def create_workflow(request: WorkflowRequest, identity: Identity = Depends(current_identity)):
     try:
         service = WorkflowService()
 
         result = await service.create_plan(
             file_id=request.file_id,
             objective=request.objective,
+            workspace_id=identity.workspace_id,
         )
 
         return {
@@ -379,7 +389,7 @@ async def create_workflow(request: WorkflowRequest):
         ) from exc
 
     except Exception as exc:
-        logger.exception("Workflow generation failed.")
+        logger.error("Workflow generation failed: %s", type(exc).__name__)
 
         raise HTTPException(
             status_code=500,
@@ -391,11 +401,11 @@ async def create_workflow(request: WorkflowRequest):
 # List all documents
 # ---------------------------------------------------------
 
-@app.get("/files")
-async def get_all_files():
+@app.get("/files", response_model=list[FileMetadataResponse], response_model_exclude_unset=True)
+async def get_all_files(identity: Identity = Depends(current_identity)):
     documents = []
 
-    async for document in files_collection.find().sort(
+    async for document in files_collection.find({"workspace_id": identity.workspace_id}).sort(
         "created_at", -1
     ):
         documents.append(_public_file(document))
@@ -407,12 +417,12 @@ async def get_all_files():
 # Get a single document
 # ---------------------------------------------------------
 
-@app.get("/files/{file_id}")
-async def get_file(file_id: str):
+@app.get("/files/{file_id}", response_model=FileMetadataResponse, response_model_exclude_unset=True)
+async def get_file(file_id: str, identity: Identity = Depends(current_identity)):
     object_id = _object_id(file_id)
 
     document = await files_collection.find_one(
-        {"_id": object_id}
+        {"_id": object_id, "workspace_id": identity.workspace_id}
     )
 
     if document is None:
@@ -429,11 +439,11 @@ async def get_file(file_id: str):
 # ---------------------------------------------------------
 
 @app.get("/status/{file_id}")
-async def get_status(file_id: str):
+async def get_status(file_id: str, identity: Identity = Depends(current_identity)):
     object_id = _object_id(file_id)
 
     document = await files_collection.find_one(
-        {"_id": object_id}
+        {"_id": object_id, "workspace_id": identity.workspace_id}
     )
 
     if document is None:
@@ -449,5 +459,8 @@ async def get_status(file_id: str):
         "total_pages": document.get("total_pages", 0),
         "total_chunks": document.get("total_chunks", 0),
         "processing_time": document.get("processing_time", 0),
-        "error": document.get("processing_error"),
+        "error": (
+            "Document processing failed. Please retry or contact support."
+            if document.get("processing_error") else None
+        ),
     }

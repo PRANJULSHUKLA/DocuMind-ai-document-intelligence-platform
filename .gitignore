@@ -12,6 +12,7 @@
 
 venv/
 .venv/
+.venv-local/
 env/
 
 __pycache__/

@@ -1,9 +1,9 @@
-from bson import ObjectId
+import asyncio
 
 from app.agents.workflow_agent import WorkflowAgent
-from app.db.collections.files import files_collection
 from app.services.document_analysis import DocumentAnalysisService
 from app.schemas.workflow import WorkflowPlan
+from app.services.document_access import get_ready_document
 
 
 class WorkflowService:
@@ -20,44 +20,14 @@ class WorkflowService:
         self,
         file_id: str,
         objective: str,
+        workspace_id: str,
     ) -> WorkflowPlan:
 
         # ----------------------------------------------
-        # Validate file ID
+        # Authorize workspace ownership and require completed processing.
         # ----------------------------------------------
 
-        try:
-
-            ObjectId(file_id)
-
-        except Exception:
-
-            raise ValueError(
-                "Invalid file_id."
-            )
-
-        # ----------------------------------------------
-        # Ensure document exists and is ready
-        # ----------------------------------------------
-
-        document = await files_collection.find_one(
-            {
-                "_id": ObjectId(file_id)
-            }
-        )
-
-        if document is None:
-
-            raise FileNotFoundError(
-                "Document not found."
-            )
-
-        if document.get("status") != "completed":
-
-            raise RuntimeError(
-                "Document is not ready for workflow planning. "
-                f"Current status: {document.get('status')}"
-            )
+        await get_ready_document(file_id, workspace_id)
 
         # ----------------------------------------------
         # Agent 2
@@ -66,13 +36,15 @@ class WorkflowService:
         analysis = await self.analysis_service.analyze(
             file_id=file_id,
             analysis_type="contract",
+            workspace_id=workspace_id,
         )
 
         # ----------------------------------------------
         # Agent 3
         # ----------------------------------------------
 
-        return self.agent.analyze(
+        return await asyncio.to_thread(
+            self.agent.analyze,
             analysis=analysis.model_dump(
                 mode="json"
             ),

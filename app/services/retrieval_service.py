@@ -1,8 +1,11 @@
+import asyncio
+
 from app.constants.rag import RAGConfig
 
 from app.db.collections.chunks import chunks_collection
 
 from app.llm.embeddings import generate_embedding
+from app.services.document_access import get_ready_document
 
 
 class RetrievalService:
@@ -11,6 +14,7 @@ class RetrievalService:
         self,
         file_id: str,
         question: str,
+        workspace_id: str,
         limit: int = RAGConfig.TOP_K,
     ) -> list[dict]:
 
@@ -18,7 +22,11 @@ class RetrievalService:
         # Generate Query Embedding
         # --------------------------------------------------
 
-        query_embedding = generate_embedding(question)
+        document = await get_ready_document(file_id, workspace_id)
+        query_embedding = await asyncio.to_thread(generate_embedding, question)
+        filters = {"file_id": file_id, "workspace_id": workspace_id}
+        if document.get("active_processing_run_id"):
+            filters["processing_run_id"] = document["active_processing_run_id"]
 
         # --------------------------------------------------
         # Atlas Vector Search
@@ -32,9 +40,7 @@ class RetrievalService:
                     "queryVector": query_embedding,
                     "numCandidates": RAGConfig.VECTOR_SEARCH_CANDIDATES,
                     "limit": limit,
-                    "filter": {
-                        "file_id": file_id,
-                    },
+                    "filter": filters,
                 }
             },
             {
@@ -53,6 +59,7 @@ class RetrievalService:
                     },
                 }
             },
+            {"$match": {"score": {"$gte": RAGConfig.MIN_SIMILARITY_SCORE}}},
         ]
 
         # --------------------------------------------------

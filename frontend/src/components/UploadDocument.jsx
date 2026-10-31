@@ -198,7 +198,6 @@ export default function UploadDocument({ onUploaded }) {
           setTimeout(resolve, POLL_INTERVAL_MS)
         );
       } catch (err) {
-        console.error("Document status polling failed:", err);
         setUploading(false);
         setError(
           getErrorMessage(
@@ -243,8 +242,6 @@ export default function UploadDocument({ onUploaded }) {
 
       await pollStatus(String(fileId), file.name);
     } catch (err) {
-      console.error("Document upload failed:", err);
-
       setUploading(false);
       setError(
         getErrorMessage(

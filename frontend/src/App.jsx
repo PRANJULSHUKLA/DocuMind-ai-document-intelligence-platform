@@ -13,7 +13,6 @@ import {
   FolderOpen,
   LayoutDashboard,
   Loader2,
-  Plus,
   RefreshCw,
   ShieldAlert,
   Sparkles,
@@ -25,7 +24,7 @@ import UploadDocument from "./components/UploadDocument";
 import ProcessingPipeline from "./components/ProcessingPipeline";
 import DocumentIntelligence from "./components/DocumentIntelligence";
 import WorkflowPanel from "./components/WorkFlowPanel";
-import AIAssistant from "./components/AIAssistant";
+import AIAssistant from "./components/AiAssistant";
 
 import {
   analyzeDocument,
@@ -135,11 +134,6 @@ export default function App() {
         );
 
       } catch (error) {
-        console.error(
-          "Failed to load documents:",
-          error
-        );
-
         if (!cancelled) {
           setPageError(
             error?.response?.data?.detail ||
@@ -318,11 +312,6 @@ export default function App() {
       );
 
     } catch (error) {
-      console.error(
-        "Document analysis failed:",
-        error
-      );
-
       setPageError(
         error?.response?.data?.detail ||
           error?.message ||
@@ -368,11 +357,6 @@ export default function App() {
       );
 
     } catch (error) {
-      console.error(
-        "Workflow generation failed:",
-        error
-      );
-
       setPageError(
         error?.response?.data?.detail ||
           error?.message ||
@@ -432,10 +416,7 @@ export default function App() {
       );
 
     } catch (error) {
-      console.error(
-        "Status refresh failed:",
-        error
-      );
+      setPageError(error?.response?.data?.detail || "Unable to refresh document status.");
     }
   }
 
@@ -889,6 +870,7 @@ export default function App() {
           {activeView ===
             VIEWS.DOCUMENTS && (
             <DocumentsView
+              onUploaded={handleUploaded}
               documents={
                 documents
               }
@@ -1347,6 +1329,7 @@ function DocumentsView({
   activeDocument,
   onSelectDocument,
   onRefresh,
+  onUploaded,
 }) {
   return (
     <div className="space-y-7">
@@ -1390,7 +1373,7 @@ function DocumentsView({
 
         <UploadDocument
           onUploaded={
-            onSelectDocument
+            onUploaded
           }
         />
 

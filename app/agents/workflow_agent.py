@@ -1,10 +1,13 @@
 import json
+import logging
 
 from google.genai import types
 
 from app.constants.rag import RAGConfig
 from app.llm.gemini import generate_content_with_fallback
 from app.schemas.workflow import WorkflowPlan
+
+logger = logging.getLogger("documind.workflow")
 
 
 class WorkflowAgent:
@@ -46,24 +49,11 @@ class WorkflowAgent:
                 "Workflow Agent returned an empty response."
             )
 
-        print("\n" + "=" * 70)
-        print("WORKFLOW AGENT RAW RESPONSE")
-        print("=" * 70)
-        print(response.text)
-        print("=" * 70)
-
         parsed = getattr(
             response,
             "parsed",
             None,
         )
-
-        print(
-            "PARSED RESPONSE:",
-            parsed,
-        )
-
-        print("=" * 70)
 
         try:
 
@@ -109,13 +99,7 @@ class WorkflowAgent:
 
         except json.JSONDecodeError as exc:
 
-            print(
-                "JSON PARSING FAILED:"
-            )
-
-            print(
-                response.text
-            )
+            logger.warning("Workflow response was invalid JSON")
 
             raise RuntimeError(
                 "Workflow Agent returned invalid JSON."
@@ -123,13 +107,7 @@ class WorkflowAgent:
 
         except Exception as exc:
 
-            print(
-                "WORKFLOW SCHEMA VALIDATION FAILED:"
-            )
-
-            print(
-                response.text
-            )
+            logger.warning("Workflow response failed schema validation")
 
             raise RuntimeError(
                 "Workflow Agent returned an invalid workflow structure."

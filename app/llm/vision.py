@@ -69,8 +69,7 @@ def image_to_markdown(
 
             if not response.ok:
                 raise RuntimeError(
-                    f"Gemini vision API returned HTTP {response.status_code}: "
-                    f"{response.text[:2000]}"
+                    f"Gemini vision API returned HTTP {response.status_code}."
                 )
             data = response.json()
 

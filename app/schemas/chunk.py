@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class ChunkSchema(BaseModel):
     # Document information
     file_id: str
+    workspace_id: str
     filename: str
     page_number: int
     chunk_index: int
@@ -40,3 +41,4 @@ class ChunkSchema(BaseModel):
     )
 
     processing_version: str = "1.0"
+    processing_run_id: str | None = None

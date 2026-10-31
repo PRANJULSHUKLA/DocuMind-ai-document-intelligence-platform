@@ -1,5 +1,6 @@
 
 import os
+import logging
 import random
 import time
 
@@ -48,7 +49,8 @@ MAX_RETRIES = max(
     int(os.getenv("GEMINI_MAX_RETRIES", "2")),
 )
 
-client = genai.Client(api_key=API_KEY)
+client = genai.Client(api_key=API_KEY, http_options={"timeout": 120000})
+logger = logging.getLogger("documind.gemini")
 
 
 def _is_retryable(error: Exception) -> bool:
@@ -109,12 +111,9 @@ def generate_content_with_fallback(
                 )
             except Exception as error:
                 last_error = error
-                print(
-                    f"[GEMINI DEBUG] model={candidate}, "
-                    f"attempt={attempt + 1}/{MAX_RETRIES + 1}, "
-                    f"error_type={type(error).__name__}, "
-                    f"error={error}",
-                    flush=True,
+                logger.warning(
+                    "Generation failed: model=%s attempt=%d error_type=%s",
+                    candidate, attempt + 1, type(error).__name__,
                 )
 
                 if not _is_retryable(error):

@@ -1,6 +1,7 @@
 from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from app.auth import Identity, current_identity
+from app.errors import GenerationUnavailableError
 from app.services import document_view
 
 router = APIRouter()
@@ -13,6 +14,8 @@ async def mapped(operation):
         raise HTTPException(404, 'Document not found.') from None
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
+    except GenerationUnavailableError:
+        raise HTTPException(503, "Generation is temporarily unavailable. Please try again later.") from None
     except RuntimeError as exc:
         raise HTTPException(409, str(exc)) from None
 

@@ -14,7 +14,7 @@ import { askDocument } from "../services/documentService";
 export default function AIAssistant({
   fileId,
   filename,
-  conversation, onConversationChange, onSourceSelect,
+  conversation, onConversationChange, onSourceSelect, askQuestion = askDocument,
 }) {
   const [localQuestion, setLocalQuestion] =
     React.useState("");
@@ -73,7 +73,7 @@ export default function AIAssistant({
 
     try {
       const result =
-        await askDocument(
+        await askQuestion(
           fileId,
           trimmed
         );

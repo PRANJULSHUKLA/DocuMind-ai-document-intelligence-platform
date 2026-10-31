@@ -16,6 +16,7 @@ class RetrievalService:
         question: str,
         workspace_id: str,
         limit: int = RAGConfig.TOP_K,
+        query_embedding: list | None = None,
     ) -> list[dict]:
 
         # --------------------------------------------------
@@ -23,7 +24,8 @@ class RetrievalService:
         # --------------------------------------------------
 
         document = await get_ready_document(file_id, workspace_id)
-        query_embedding = await asyncio.to_thread(generate_embedding, question)
+        if query_embedding is None:
+            query_embedding = await asyncio.to_thread(generate_embedding, question)
         filters = {"file_id": file_id, "workspace_id": workspace_id}
         if document.get("active_processing_run_id"):
             filters["processing_run_id"] = document["active_processing_run_id"]

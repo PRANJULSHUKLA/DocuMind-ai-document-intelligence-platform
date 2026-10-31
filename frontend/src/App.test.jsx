@@ -30,8 +30,9 @@ test('completed upload selects the document and refreshes the document library',
   render(<App />)
   await waitFor(() => expect(getDocuments).toHaveBeenCalledTimes(1))
   await user.click(screen.getAllByRole('button', { name: 'Documents' })[0])
-  await user.click(screen.getByRole('button', { name: 'Complete test upload' }))
   await waitFor(() => expect(getDocuments).toHaveBeenCalledTimes(2))
+  await user.click(screen.getByRole('button', { name: 'Complete test upload' }))
+  await waitFor(() => expect(getDocuments).toHaveBeenCalledTimes(3))
   expect(screen.getAllByText('new-contract.pdf').length).toBeGreaterThan(0)
 })
 
@@ -39,4 +40,15 @@ test('document-list failures give the user a visible error', async () => {
   getDocuments.mockRejectedValue(new Error('Backend unavailable'))
   render(<App />)
   expect(await screen.findByText('Backend unavailable')).toBeInTheDocument()
+})
+
+
+test('opening Documents refreshes uploads created from another workspace panel', async () => {
+  const user = userEvent.setup()
+  getDocuments.mockResolvedValueOnce([]).mockResolvedValue([{ _id: '507f1f77bcf86cd799439011', filename: 'collection-upload.pdf', status: 'completed' }])
+  render(<App />)
+  await waitFor(() => expect(getDocuments).toHaveBeenCalledTimes(1))
+  await user.click(screen.getAllByRole('button', { name: 'Documents' })[0])
+  await waitFor(() => expect(getDocuments).toHaveBeenCalledTimes(2))
+  expect(await screen.findByText('collection-upload.pdf')).toBeInTheDocument()
 })

@@ -35,9 +35,10 @@ The existing Dev Container is supported; its `mongo` service does not itself
 establish Atlas compatibility. Container applications use `redis://valkey:6379/0`;
 host applications need a reachable host address instead of the Docker service name.
 
-For private local development before identity-provider setup, explicitly set
-`AUTH_MODE=development` and `APP_ENV=development` in backend `.env`, and
-`VITE_AUTH_MODE=development` in frontend `.env`. Bind both servers to loopback.
+For private local development before identity-provider setup, use the explicit
+per-process settings below. They preserve your existing `.env` files and make
+the authentication/API overrides reproducible in a fresh terminal. Bind both
+servers to loopback.
 This uses one local development identity. It is rejected for nonlocal requests
 and when `APP_ENV=production`; never put this mode behind a public reverse proxy.
 Production frontend builds ignore the development identity setting.
@@ -46,14 +47,65 @@ Run these in separate terminals from the repository root, with the Python
 environment activated where appropriate:
 
 ```sh
-bash run.sh
-npm --prefix frontend run dev -- --host 127.0.0.1
+APP_ENV=development AUTH_MODE=development HOST=127.0.0.1 bash run.sh
+VITE_AUTH_MODE=development VITE_API_BASE_URL=/api npm --prefix frontend run dev -- --host 127.0.0.1 --port 5179 --strictPort
 python -m app.queue.worker_main
 ```
 
-The UI is at `http://localhost:5173` and the API at `http://localhost:8000`.
+The UI is at `http://127.0.0.1:5179` and the API at `http://127.0.0.1:8000`.
+These commands also work inside the existing Dev Container; forward its ports
+privately in VS Code. Do not make the forwarded Vite port public. The development
+proxy makes backend requests appear local, so backend loopback checks are not a
+security boundary against users of an exposed frontend proxy.
+
+The `/api` development proxy forwards to loopback port 8000 and removes the `/api`
+prefix. Vite preview explicitly has no API proxy. Production builds must use an
+explicit `VITE_API_BASE_URL` pointing at the deployed API, or a separately managed
+authenticated production reverse proxy; the development settings are not hosting
+configuration. For managed sign-in, register callbacks for the exact chosen
+frontend origin/port as described in [SIGN_IN.md](docs/SIGN_IN.md).
+
 `GET /` is a liveness check; it does not claim MongoDB, Redis, model quota, or
 vector search are healthy.
+
+## Upload failure recovery
+
+New uploads atomically save the PDF before dispatching a stable RQ job ID for the
+processing attempt. RQ unique enqueue and worker attempt fencing prevent duplicate
+dispatch or an older attempt overwriting a newer run. A queue timeout alone never
+deletes a finalized PDF or marks an already advanced worker failed.
+
+- HTTP 200: enqueue confirmed, including an accepted job whose reply was lost.
+- HTTP 202: PDF saved, but queue acceptance cannot currently be determined.
+- HTTP 503 with `file_id`: no job was found, or the attempt is terminal; the saved
+  original remains available for recovery. A missing job is an observation at
+  reconciliation time, not permission to delete its PDF.
+
+The upload UI retains that ID and retries processing the saved document rather
+than uploading another copy. Pending confirmation gets at most three automatic
+reconciliation attempts during status polling. Terminal OCR/model failures require
+explicit user retry. `POST /files/{file_id}/retry` requires the same authenticated
+workspace ownership as other document operations. Recovery of an unacknowledged
+attempt reuses its job ID; a confirmed terminal attempt uses the next fenced ID.
+Active workers, unknown queue state, completed documents, and legacy records are
+handled conservatively rather than blindly enqueuing duplicates.
+
+Operators can inspect stranded **new-protocol** upload records older than ten
+minutes without changing data:
+
+```sh
+python scripts/recover_uploads.py
+```
+
+After reviewing the output, run with `--apply` to reconcile/resubmit recoverable
+uploads. A record without a usable original is marked failed only when its job is
+known absent/terminal and the dispatch record is unchanged. No finalized PDF is
+purged. The tool skips legacy records, recent uploads, confirmed processing jobs,
+and model failures already handed to a worker. Incomplete temporary files from a
+normal write failure are removed by the atomic writer; hard-crash temporary files
+are retained for operator review, never swept by a broad directory deletion.
+Run API, worker, and recovery tools from the same code revision and shared
+`UPLOAD_DIR`. Restart API and worker together when deploying this dispatch change.
 
 ## Storage and existing documents
 

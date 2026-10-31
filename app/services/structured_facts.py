@@ -14,8 +14,15 @@ AMOUNT = re.compile(r'\b(USD|EUR|GBP|INR)\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2}
 DATE = re.compile(r'\b(?:\d{4}-\d{2}-\d{2}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\b', re.I)
 CLAUSE = re.compile(r'(?:[^.!?;\n]|\.(?=\d))+[.!?;\n]')
 OBLIGATION = re.compile(r'^\s*([A-Za-z][A-Za-z ]{0,60}?)\s+(must not|shall not|may not|is prohibited from|must|shall|is required to)\s+(.+?)[.!?;\n]$', re.I)
-QUALIFIER = re.compile(r'\b(if|unless|except|provided|subject to|only when|when|until|after|before|during)\b', re.I)
+QUALIFIER = re.compile(r'\b(if|unless|except|provided|subject to|only when|when|until|after|before|during|upon|on receipt|on approval|as long as|in case|where)\b', re.I)
 PARTY = re.compile(r'^\s*(Buyer|Seller|Customer|Supplier|Party)\s*:\s*([^.!?;\n]{1,100})[.!?;\n]$', re.I)
+
+
+def decimal_value(raw):
+    # Decimal.normalize() applies context precision and can silently round long
+    # literal amounts. Formatting the parsed Decimal preserves every digit.
+    value = format(Decimal(raw.replace(',', '')), 'f')
+    return value.rstrip('0').rstrip('.') if '.' in value else value
 
 
 def extract_chunk(chunk, document):
@@ -38,8 +45,7 @@ def extract_chunk(chunk, document):
                           'uncertainty': uncertainty or ('qualified_clause' if conditions else 'literal_only'),
                           'source': {**source, 'excerpt': quote}})
         for match in AMOUNT.finditer(quote):
-            number = Decimal(match[2].replace(',', ''))
-            add('amount', {'amount': format(number.normalize(), 'f'), 'currency': match[1].upper()})
+            add('amount', {'amount': decimal_value(match[2]), 'currency': match[1].upper()})
         for match in DATE.finditer(quote):
             try:
                 raw = match[0]
@@ -85,7 +91,7 @@ async def published_context(collection_id, workspace, ids):
             # Defense in depth even if a repository adapter ignores filters.
             if any(chunk.get(k) != v for k, v in filters.items()):
                 raise HTTPException(409, 'Published evidence identity mismatch.')
-            if not chunk.get('_id') or not isinstance(chunk.get('page_number'), int) or chunk['page_number'] < 1:
+            if not chunk.get('_id') or type(chunk.get('page_number')) is not int or chunk['page_number'] < 1:
                 limitations.append({'file_id': file_id, 'reason': 'missing_source_identity_or_page'})
                 continue
             if len(str(chunk.get('text') or '')) > MAX_TEXT:

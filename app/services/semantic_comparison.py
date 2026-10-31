@@ -5,7 +5,6 @@ The existing literal comparator is retained alongside these additional findings.
 """
 from collections import defaultdict
 from datetime import date, datetime
-from decimal import Decimal
 from fastapi import HTTPException
 from app.services import structured_facts
 from app.services.comparison import compare_evidence
@@ -13,7 +12,7 @@ from app.services.comparison import compare_evidence
 
 def normalized_action(text):
     def amount(match):
-        return match[1].upper() + ' ' + format(Decimal(match[2].replace(',', '')).normalize(), 'f')
+        return match[1].upper() + ' ' + structured_facts.decimal_value(match[2])
     def parsed_date(match):
         raw = match[0]
         try:

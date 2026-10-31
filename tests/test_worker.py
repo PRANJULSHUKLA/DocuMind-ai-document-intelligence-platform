@@ -100,3 +100,23 @@ async def test_missing_source_is_marked_failed(worker, store):
     with pytest.raises(RuntimeError):
         await workers._process_file_async(FILE_ID, str(worker[0]))
     assert store.update_one.await_args.args[1]["$set"]["status"] == "failed"
+
+
+async def test_superseded_dispatch_attempt_never_starts_ocr(worker, store):
+    store.find_one_and_update.return_value = None
+    store.find_one.return_value = {"status": "queued", "enqueue_attempt": 2}
+    await workers._process_file_async(FILE_ID, str(worker[0]), attempt=1)
+    assert store.find_one_and_update.await_args.args[0]["enqueue_attempt"] == 1
+    workers.convert_from_path.assert_not_called()
+    worker[2].insert_one.assert_not_awaited()
+
+
+async def test_new_attempt_fences_all_worker_state_updates(worker, store):
+    await workers._process_file_async(FILE_ID, str(worker[0]), attempt=2)
+    assert store.find_one_and_update.await_args.args[0]["enqueue_attempt"] == 2
+    assert all(call.args[0]["enqueue_attempt"] == 2 for call in store.update_one.await_args_list)
+
+
+async def test_legacy_job_still_accepts_two_arguments(worker, store):
+    await workers._process_file_async(FILE_ID, str(worker[0]))
+    assert store.find_one_and_update.await_args.args[0]["enqueue_attempt"] == {"$exists": False}

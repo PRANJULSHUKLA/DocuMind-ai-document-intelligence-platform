@@ -45,7 +45,7 @@ def offline(monkeypatch):
 def store(monkeypatch):
     from app import server
     from app.queue import workers
-    from app.services import document_access
+    from app.services import document_access, upload_dispatch
 
     collection = SimpleNamespace(
         insert_one=AsyncMock(return_value=SimpleNamespace(inserted_id="507f1f77bcf86cd799439011")),
@@ -54,7 +54,7 @@ def store(monkeypatch):
         find_one=AsyncMock(return_value=None),
         find=MagicMock(),
     )
-    for module in (server, workers, document_access):
+    for module in (server, workers, document_access, upload_dispatch):
         monkeypatch.setattr(module, "files_collection", collection)
     return collection
 

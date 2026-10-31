@@ -40,6 +40,7 @@ def authenticated_keys(monkeypatch, key):
     ("post", "/analyze", {"file_id": "id"}),
     ("post", "/workflow", {"file_id": "id", "objective": "Review"}),
     ("post", "/upload", None),
+    ("post", "/files/507f1f77bcf86cd799439011/retry", None),
 ])
 def test_all_document_routes_require_sign_in(store, method, path, payload):
     with TestClient(server.app) as client:

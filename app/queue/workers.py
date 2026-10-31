@@ -27,7 +27,7 @@ logger = logging.getLogger("documind.worker")
 _WORKER_LOOP = asyncio.new_event_loop()
 
 
-def process_file(file_id: str, file_path: str) -> None:
+def process_file(file_id: str, file_path: str, attempt: int | None = None) -> None:
     """
     RQ entry point.
 
@@ -35,13 +35,14 @@ def process_file(file_id: str, file_path: str) -> None:
     function with (file_id, file_path).
     """
     _WORKER_LOOP.run_until_complete(
-        _process_file_async(file_id, file_path)
+        _process_file_async(file_id, file_path, attempt)
     )
 
 
 async def _process_file_async(
     file_id: str,
     file_path: str,
+    attempt: int | None = None,
 ) -> None:
     start_time = time.perf_counter()
     object_id = ObjectId(file_id)
@@ -51,6 +52,8 @@ async def _process_file_async(
     pages = []
     run_id = uuid4().hex
     owned = {"_id": object_id, "processing_run_id": run_id}
+    if attempt is not None:
+        owned["enqueue_attempt"] = attempt
     claimed = False
 
     try:
@@ -61,6 +64,9 @@ async def _process_file_async(
             {
                 "_id": object_id,
                 "status": {"$ne": FileStatus.COMPLETED},
+                # Existing two-argument jobs still work for legacy records. A
+                # delayed job from a superseded attempt cannot claim a new run.
+                "enqueue_attempt": attempt if attempt is not None else {"$exists": False},
                 "$or": [
                     {"processing_lease_until": {"$exists": False}},
                     {"processing_lease_until": {"$lte": now}},
@@ -70,6 +76,7 @@ async def _process_file_async(
                 "$set": {
                     "status": FileStatus.PROCESSING,
                     "processing_error": None,
+                    "enqueue_state": "confirmed",
                     "processing_run_id": run_id,
                     "processing_lease_until": now + timedelta(seconds=1260),
                 }

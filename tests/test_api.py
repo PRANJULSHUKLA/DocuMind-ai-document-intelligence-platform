@@ -39,13 +39,21 @@ def test_upload_sanitizes_path_and_enqueues(api, store, monkeypatch, tmp_path):
     assert (tmp_path / FILE_ID / "safe.pdf").read_bytes() == b"%PDF-1.7\n"
     assert enqueue.call_args.args[1] == FILE_ID
     assert enqueue.call_args.kwargs["job_timeout"] == 1200
+    assert enqueue.call_args.kwargs["job_id"] == f"documind-{FILE_ID}-attempt-1"
+    assert enqueue.call_args.kwargs["unique"] is True
 
 
-def test_queue_failure_marks_upload_failed(api, store, monkeypatch):
+def test_confirmed_missing_queue_job_retains_saved_upload(api, store, monkeypatch, tmp_path):
     from app import server
+    from app.services import upload_dispatch
+    from rq.exceptions import NoSuchJobError
     monkeypatch.setattr(server.q, "enqueue", Mock(side_effect=RuntimeError("queue unavailable")))
-    assert api.post("/upload", files={"file": ("test.pdf", b"%PDF-1.7")}).status_code == 500
-    assert store.update_one.await_args.args[1]["$set"]["status"] == "failed"
+    monkeypatch.setattr(upload_dispatch.Job, "fetch", Mock(side_effect=NoSuchJobError))
+    result = api.post("/upload", files={"file": ("test.pdf", b"%PDF-1.7")})
+    assert result.status_code == 503
+    assert result.json()["file_id"] == FILE_ID
+    assert result.json()["enqueue_state"] == "not_found"
+    assert (tmp_path / FILE_ID / "test.pdf").is_file()
 
 
 @pytest.mark.parametrize("path", ["/files/not-an-id", "/status/not-an-id"])

@@ -1,5 +1,6 @@
 """Additive workspace collections; no deletion or re-ingestion of original files."""
 import asyncio
+import time
 from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import HTTPException
@@ -86,8 +87,14 @@ async def unchanged(row, workspace, ready):
 
 
 async def ask(collection_id, workspace, question, selected=None):
+    started = time.perf_counter()
     row, ready, skipped = await context(collection_id, workspace, selected)
     chunks = await retrieve(ready, question, workspace)
-    result = await RAGPipeline().answer_chunks(question, chunks)
+    retrieval_ms = (time.perf_counter() - started) * 1000
+    result = await RAGPipeline().answer_chunks(
+        question, chunks, retrieval_ms=retrieval_ms,
+        overall_start=started, file_id=collection_id,
+    )
     await unchanged(row, workspace, ready)
+    result["total_time_ms"] = round((time.perf_counter() - started) * 1000, 2)
     return {**result, 'skipped_documents': skipped, 'eligible_documents': len(ready)}

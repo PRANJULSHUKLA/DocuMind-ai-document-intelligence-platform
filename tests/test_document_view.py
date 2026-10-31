@@ -100,3 +100,39 @@ def test_viewer_routes_require_identity(store, suffix):
     with TestClient(app) as client:
         assert client.get(f'/files/{ID}/{suffix}').status_code == 401
     store.find_one.assert_not_awaited()
+
+
+def test_parent_symlink_swap_between_validation_and_open_is_rejected(api, original, monkeypatch, tmp_path):
+    check = document_view.checked_path
+    def swap(document):
+        path = check(document)
+        directory = path.parent
+        moved = tmp_path / 'moved'
+        directory.rename(moved)
+        directory.symlink_to(moved, target_is_directory=True)
+        return path
+    monkeypatch.setattr(document_view, 'checked_path', swap)
+    assert api.get(f'/files/{ID}/content').status_code == 404
+
+
+def test_file_symlink_swap_between_validation_and_open_is_rejected(api, original, monkeypatch, tmp_path):
+    check = document_view.checked_path
+    def swap(document):
+        path = check(document)
+        path.unlink()
+        target = tmp_path / 'other.pdf'
+        target.write_bytes(original.data)
+        path.symlink_to(target)
+        return path
+    monkeypatch.setattr(document_view, 'checked_path', swap)
+    assert api.get(f'/files/{ID}/content').status_code == 404
+
+
+def test_version_change_during_read_is_rejected(api, original, monkeypatch, store):
+    read = document_view.read_original
+    def change(document):
+        data = read(document)
+        store.find_one.return_value = {**document, 'active_processing_run_id': 'new-run'}
+        return data
+    monkeypatch.setattr(document_view, 'read_original', change)
+    assert api.get(f'/files/{ID}/content').status_code == 409

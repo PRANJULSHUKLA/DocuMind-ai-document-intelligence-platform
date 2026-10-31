@@ -1,4 +1,5 @@
 """Private, version-aware original access and deterministic extracted-text search."""
+from contextlib import ExitStack
 import hashlib
 import os
 from pathlib import Path
@@ -31,10 +32,18 @@ def checked_path(document):
 
 
 def read_original(document):
-    path = checked_path(document)
+    checked_path(document)
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
-        with os.fdopen(fd, 'rb') as stream:
+        with ExitStack() as opened:
+            # Anchor each component to a trusted directory descriptor. O_NOFOLLOW
+            # on only the final resolved path cannot prevent parent-swap races.
+            directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            root_fd = os.open(UPLOAD_DIR, directory_flags)
+            opened.callback(os.close, root_fd)
+            directory_fd = os.open(str(document['_id']), directory_flags, dir_fd=root_fd)
+            opened.callback(os.close, directory_fd)
+            fd = os.open(document['filename'], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
+            stream = opened.enter_context(os.fdopen(fd, 'rb'))
             if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                 raise HTTPException(404, 'PDF_UNAVAILABLE')
             content = stream.read(MAX_BYTES + 1)
@@ -65,7 +74,11 @@ async def content(file_id, workspace_id, version=None):
     document = await get_authorized_document(file_id, workspace_id)
     if version and version != revision(document):
         raise HTTPException(409, 'SOURCE_VERSION_MISMATCH')
-    return document, await run_in_threadpool(read_original, document)
+    data = await run_in_threadpool(read_original, document)
+    current = await get_authorized_document(file_id, workspace_id)
+    if revision(current) != revision(document):
+        raise HTTPException(409, 'SOURCE_VERSION_MISMATCH')
+    return document, data
 
 
 def source_fields(chunk):

@@ -63,7 +63,7 @@ export default function CollectionsWorkspace() {
   async function openSource(source) {
     try {
       const manifest = await getDocumentView(source.file_id)
-      if ((source.processing_run_id || null) !== (manifest.processing_run_id || null) || (source.content_sha256 || null) !== (manifest.content_sha256 || null) || source.page_number < 1 || source.page_number > manifest.total_pages) throw new Error('Source version changed. Ask again for current evidence.')
+      if ((source.processing_run_id || null) !== (manifest.processing_run_id || null) || (source.content_sha256 || null) !== (manifest.content_sha256 || null) || !Number.isInteger(source.page_number) || source.page_number < 1 || source.page_number > manifest.total_pages) throw new Error('Source version changed. Ask again for current evidence.')
       setReadingSession({ page: source.page_number, source, tab: 'document' })
       setReader({ file_id: source.file_id, filename: source.filename })
     } catch (failure) { setError(failure.message || 'Unable to open source.') }

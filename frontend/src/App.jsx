@@ -1875,6 +1875,9 @@ function pageTitle(
   view
 ) {
   switch (view) {
+    case VIEWS.COLLECTIONS:
+      return "Collections";
+
     case VIEWS.DOCUMENTS:
       return "Documents";
 

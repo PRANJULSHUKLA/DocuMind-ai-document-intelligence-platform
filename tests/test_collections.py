@@ -94,3 +94,63 @@ def test_delete_only_removes_owned_collection(api, collection_store):
 
 def test_blank_name_rejected(api):
     assert api.post('/collections', json={'name': '   '}).status_code == 422
+
+
+async def test_collection_chat_reports_retrieval_and_end_to_end_latency(monkeypatch):
+    """Retrieval and the final version check must not vanish from UI timings."""
+    from app.services import rag_pipeline
+    clock = [100.0]
+    monkeypatch.setattr(rag_pipeline.time, 'perf_counter', lambda: clock[0])
+
+    async def context(*args):
+        clock[0] += .25
+        return {'_id': ObjectId(ID), 'revision': 1}, [(ID, {'status': 'completed'})], []
+
+    async def retrieve(*args):
+        clock[0] += .75
+        return [{'file_id': ID, 'filename': 'A.pdf', 'page_number': 1, 'chunk_index': 0, 'text': 'Payment USD 100.', 'score': .9}]
+
+    def generate(**kwargs):
+        clock[0] += 2
+        return SimpleNamespace(text='Payment is USD 100.', candidates=[])
+
+    async def unchanged(*args):
+        clock[0] += .5
+
+    monkeypatch.setattr(service, 'context', context)
+    monkeypatch.setattr(service, 'retrieve', retrieve)
+    monkeypatch.setattr(service, 'unchanged', unchanged)
+    monkeypatch.setattr(rag_pipeline, 'generate_content_with_fallback', generate)
+    result = await service.ask(ID, 'workspace', 'Payment?')
+    assert result['retrieval_time_ms'] == 1000
+    assert result['generation_time_ms'] == 2000
+    assert result['total_time_ms'] == 3500
+    assert result['sources'][0]['excerpt'] == 'Payment USD 100.'
+
+
+async def test_collection_no_evidence_still_reports_retrieval_and_validation_latency(monkeypatch):
+    from app.services import rag_pipeline
+    clock = [100.0]
+    monkeypatch.setattr(rag_pipeline.time, 'perf_counter', lambda: clock[0])
+
+    async def context(*args):
+        clock[0] += 1
+        return {'_id': ObjectId(ID), 'revision': 1}, [], [{'file_id': ID, 'status': 'failed'}]
+
+    async def retrieve(*args):
+        clock[0] += 2
+        return []
+
+    async def unchanged(*args):
+        clock[0] += .5
+
+    monkeypatch.setattr(service, 'context', context)
+    monkeypatch.setattr(service, 'retrieve', retrieve)
+    monkeypatch.setattr(service, 'unchanged', unchanged)
+    result = await service.ask(ID, 'workspace', 'Payment?')
+    assert result['retrieval_time_ms'] == 3000
+    assert result['generation_time_ms'] == 0
+    assert result['total_time_ms'] == 3500
+    assert result['sources'] == []
+    assert result['eligible_documents'] == 0
+    assert result['skipped_documents'] == [{'file_id': ID, 'status': 'failed'}]

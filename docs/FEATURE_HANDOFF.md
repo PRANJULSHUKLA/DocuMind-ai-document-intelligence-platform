@@ -1,4 +1,9 @@
-# DocuMind feature delivery — October 31, 2026
+# Original pre-release feature handoff — October 31, 2026
+
+This document records the state before the owner authorized sequential release
+merges. Its draft/approval statements and original test counts are historical.
+See [release review](RELEASE_REVIEW.md) and the linked GitHub PRs for current
+merge status, release verification, and launch commands.
 
 ## Branches and review order
 

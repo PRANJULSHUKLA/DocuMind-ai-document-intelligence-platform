@@ -47,3 +47,7 @@ one page at a time. It cancels replaced downloads and retains only the active PD
 Legacy answers without source identity cannot be silently mapped by filename;
 ask again for enriched citations. Search results are OCR text and may differ from
 native PDF text; search/citation navigation does not invent precise highlights.
+
+Private file reads anchor directory components with descriptor-relative opens and
+reject symlinks even if a parent/file is swapped after path validation. The API
+rechecks the document revision after reading and before returning bytes.

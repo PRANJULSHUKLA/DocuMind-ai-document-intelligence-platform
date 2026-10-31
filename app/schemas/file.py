@@ -9,6 +9,7 @@ class FileSchema(BaseModel):
     filename: str
 
     status: str
+    workspace_id: str
 
     document_type: Literal[
         "resume",

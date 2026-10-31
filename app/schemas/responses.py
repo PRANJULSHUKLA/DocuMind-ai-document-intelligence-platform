@@ -1,4 +1,18 @@
 from pydantic import BaseModel, Field
+from datetime import datetime
+
+
+class FileMetadataResponse(BaseModel):
+    id: str = Field(alias="_id")
+    filename: str
+    status: str
+    document_type: str = "general"
+    language: str = "unknown"
+    total_pages: int = 0
+    total_chunks: int = 0
+    processing_time: float = 0.0
+    created_at: datetime | None = None
+    processing_version: str = "1.0"
 
 
 class Source(BaseModel):

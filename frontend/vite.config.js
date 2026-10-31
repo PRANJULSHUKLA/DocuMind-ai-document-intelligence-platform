@@ -7,4 +7,16 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    host: '127.0.0.1',
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
+  // Vite preview otherwise inherits server.proxy. It is not a production API gateway.
+  preview: { host: '127.0.0.1', proxy: {} },
 })

@@ -17,6 +17,11 @@ export async function getDocumentStatus(fileId) {
   return response.data;
 }
 
+export async function retryDocumentProcessing(fileId) {
+  const response = await api.post(`/files/${encodeURIComponent(fileId)}/retry`);
+  return response.data;
+}
+
 export async function getDocuments() {
   const response = await api.get("/files");
   return response.data;

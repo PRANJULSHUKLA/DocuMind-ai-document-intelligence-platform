@@ -1,4 +1,5 @@
 
+import asyncio
 import logging
 import time
 from typing import Any
@@ -37,7 +38,6 @@ class RAGPipeline:
             text = cls._clean_text(chunk.get("text"))
 
             if not text:
-                unique_chunks.append(chunk)
                 continue
 
             normalized = text.casefold()
@@ -68,16 +68,13 @@ DOCUMENT EVIDENCE:
 
 RESPONSE REQUIREMENTS:
 1. Answer the question directly.
-2. If asked for five strengths, provide five numbered points when the
-   evidence supports five distinct strengths.
-3. Explain each strength using specific evidence from the document.
-4. Do not invent skills, experience, achievements, qualifications,
-   technologies, metrics, or dates.
-5. Distinguish explicit evidence from reasonable inference.
-6. If fewer than five strengths are supported, say so clearly.
-7. Use complete sentences and concise explanations.
-8. Finish every point and the final sentence before ending the response.
-9. Do not include source metadata in the answer; the application
+2. Support factual claims with specific evidence from the document.
+3. Do not invent names, amounts, dates, clauses, obligations, or other facts.
+4. Distinguish explicit evidence from reasonable inference.
+5. If evidence is insufficient, explain what cannot be established.
+6. Use complete sentences and concise explanations.
+7. Finish every point and the final sentence before ending the response.
+8. Do not include source metadata in the answer; the application
    provides sources separately.
 
 Write a complete, evidence-based answer now.
@@ -134,7 +131,7 @@ Write a complete, evidence-based answer now.
 
         return sources
 
-    async def run(self, file_id: str, question: str):
+    async def run(self, file_id: str, question: str, workspace_id: str):
         overall_start = time.perf_counter()
         question = self._clean_text(question)
 
@@ -148,6 +145,7 @@ Write a complete, evidence-based answer now.
             file_id=file_id,
             question=question,
             limit=RAGConfig.TOP_K,
+            workspace_id=workspace_id,
         )
 
         retrieval_ms = (time.perf_counter() - retrieval_start) * 1000
@@ -158,8 +156,7 @@ Write a complete, evidence-based answer now.
             return self._make_response(
                 answer=(
                     "I couldn't find relevant information in the uploaded "
-                    "document. Try asking about a specific skill, experience, "
-                    "qualification, or section."
+                    "document. Try asking about a specific topic or section."
                 ),
                 sources=[],
                 retrieval_ms=retrieval_ms,
@@ -173,7 +170,7 @@ Write a complete, evidence-based answer now.
         context_chunks = ranked_chunks[:max_chunks]
 
         # 3. Assemble source-aware context.
-        context = ContextBuilder.build(context_chunks).strip()
+        context, context_chunks = ContextBuilder.build_with_sources(context_chunks)
 
         if not context:
             total_ms = (time.perf_counter() - overall_start) * 1000
@@ -183,23 +180,6 @@ Write a complete, evidence-based answer now.
                     "Chunks were retrieved, but no usable document text "
                     "was assembled. Check the stored chunk text."
                 ),
-                sources=[],
-                retrieval_ms=retrieval_ms,
-                generation_ms=0.0,
-                total_ms=total_ms,
-            )
-
-        # 4. Enforce the configured context limit.
-        max_context_length = int(RAGConfig.MAX_CONTEXT_LENGTH)
-
-        if max_context_length > 0 and len(context) > max_context_length:
-            context = context[:max_context_length].rstrip()
-
-        if not context:
-            total_ms = (time.perf_counter() - overall_start) * 1000
-
-            return self._make_response(
-                answer="No usable document context remains after applying the context limit.",
                 sources=[],
                 retrieval_ms=retrieval_ms,
                 generation_ms=0.0,
@@ -222,7 +202,8 @@ Write a complete, evidence-based answer now.
         # 6. Generate the answer.
         generation_start = time.perf_counter()
 
-        response = generate_content_with_fallback(
+        response = await asyncio.to_thread(
+            generate_content_with_fallback,
             model=GeminiModels.CHAT,
             contents=prompt,
             config=types.GenerateContentConfig(

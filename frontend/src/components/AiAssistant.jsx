@@ -93,11 +93,6 @@ export default function AIAssistant({
         ]
       );
     } catch (err) {
-      console.error(
-        "Assistant request failed:",
-        err
-      );
-
       setError(
         err?.response?.data?.detail ||
           err?.message ||

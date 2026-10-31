@@ -13,6 +13,7 @@ import {
 import {
   uploadDocument,
   getDocumentStatus,
+  retryDocumentProcessing,
 } from "../services/documentService";
 
 const MAX_FILE_SIZE_MB = 25;
@@ -44,7 +45,7 @@ function normalizeStatus(status) {
 }
 
 function getErrorMessage(error, fallback) {
-  const detail = error?.response?.data?.detail;
+  const detail = error?.response?.data?.detail || error?.response?.data?.message;
 
   if (typeof detail === "string") {
     return detail;
@@ -98,6 +99,7 @@ export default function UploadDocument({ onUploaded }) {
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [recoveryFileId, setRecoveryFileId] = useState(null);
 
   const statusLabels = {
     queued: "Queued for processing",
@@ -117,6 +119,7 @@ export default function UploadDocument({ onUploaded }) {
     }
 
     setError("");
+    setRecoveryFileId(null);
     setStatus("");
 
     const isPdf =
@@ -155,6 +158,7 @@ export default function UploadDocument({ onUploaded }) {
     }
 
     setSelectedFile(null);
+    setRecoveryFileId(null);
     setStatus("");
     setError("");
 
@@ -164,6 +168,7 @@ export default function UploadDocument({ onUploaded }) {
   }
 
   async function pollStatus(fileId, filename) {
+    let recoveries = 0;
     for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
       try {
         const result = await getDocumentStatus(fileId);
@@ -194,11 +199,18 @@ export default function UploadDocument({ onUploaded }) {
           return;
         }
 
+        // Retry an unconfirmed dispatch against the same saved file/job ID.
+        // Do not automatically retry a terminal OCR/model failure.
+        if (attempt > 0 && attempt % 6 === 0 && recoveries < 3 &&
+            ["saving", "pending", "uncertain", "not_found"].includes(result?.enqueue_state)) {
+          recoveries += 1;
+          try { await retryDocumentProcessing(fileId); } catch { /* Keep polling; explicit retry remains available. */ }
+        }
+
         await new Promise((resolve) =>
           setTimeout(resolve, POLL_INTERVAL_MS)
         );
       } catch (err) {
-        console.error("Document status polling failed:", err);
         setUploading(false);
         setError(
           getErrorMessage(
@@ -228,7 +240,9 @@ export default function UploadDocument({ onUploaded }) {
     setStatus("queued");
 
     try {
-      const result = await uploadDocument(file);
+      const result = recoveryFileId
+        ? await retryDocumentProcessing(recoveryFileId)
+        : await uploadDocument(file);
 
       const fileId =
         result?.file_id ||
@@ -241,10 +255,13 @@ export default function UploadDocument({ onUploaded }) {
         );
       }
 
+      setRecoveryFileId(String(fileId));
+
       await pollStatus(String(fileId), file.name);
     } catch (err) {
-      console.error("Document upload failed:", err);
-
+      if (err?.response?.data?.file_id) {
+        setRecoveryFileId(String(err.response.data.file_id));
+      }
       setUploading(false);
       setError(
         getErrorMessage(
@@ -343,7 +360,7 @@ export default function UploadDocument({ onUploaded }) {
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700"
             >
               <Upload size={16} />
-              {status === "failed" || error
+              {recoveryFileId ? "Retry processing saved PDF" : status === "failed" || error
                 ? "Try upload again"
                 : "Start analysis"}
             </button>

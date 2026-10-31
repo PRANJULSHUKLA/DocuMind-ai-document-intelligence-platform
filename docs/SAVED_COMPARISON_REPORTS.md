@@ -62,7 +62,7 @@ authorized members to list/read/delete; no finer report-owner role is introduced
 
 PDF exports include summary, scope/limitations, findings, source quotations and
 file/page/chunk/run/hash references, document revision states, page numbers and
-private-report footers. All input markup is escaped and long passages paginate.
+private-report footers. All input markup is rendered literally, and long passages paginate.
 The bundled Vera font is embedded; unsupported glyphs are visibly represented as
 `[U+XXXX]`. JSON retains exact Unicode. Full multilingual typography requires
 separately licensed fonts/layout validation before claiming universal coverage.

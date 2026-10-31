@@ -118,6 +118,18 @@ def test_pdf_escapes_markup_long_text_and_unsupported_glyphs_without_losing_page
     assert '<script> & synthetic review' in text
     assert '<b>Literal</b>' in text and '[U+4E2D]' in text
     assert 'Document revisions' in text
+    from app.services.report_pdf import FONT, BOLD, WIDTH, HEIGHT, MARGIN
+    from reportlab.pdfbase import pdfmetrics
+    def inside_page(text, cm, tm, font, size):
+        if not text.strip(): return
+        x = cm[0] * tm[4] + cm[2] * tm[5] + cm[4]
+        y = cm[1] * tm[4] + cm[3] * tm[5] + cm[5]
+        font_name = BOLD if 'Bold' in str(font.get('/BaseFont')) else FONT
+        width = pdfmetrics.stringWidth(text.rstrip('\n'), font_name, size)
+        assert x >= MARGIN - .1 and x + width <= WIDTH - MARGIN + .1
+        assert 20 <= y <= HEIGHT - MARGIN
+    for page in reader.pages:
+        page.extract_text(visitor_text=inside_page)
 
 
 def test_save_requires_explicit_review_and_identity_workspace(api, monkeypatch):

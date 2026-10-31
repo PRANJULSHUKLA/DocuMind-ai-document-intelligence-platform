@@ -164,15 +164,26 @@ Analysis combines schema-validated Gemini output with deterministic risk rules.
 Workflow generation produces a plan; it does not execute external actions.
 
 Current limitations include Vision OCR for every page, a 30,000-character analysis
-limit, personal rather than shared workspaces, and no document viewer, claim-level
+limit, personal rather than shared workspaces, and no claim-level
 citation verification, production quotas, backups, or persistent action execution.
+This release adds the private Evidence Viewer, collections, and focused
+comparison. See the release verification and launch notes below.
 Similarity thresholds require evaluation against representative documents.
 See [implementation status](docs/IMPLEMENTATION_STATUS.md) for validation and
 remaining operational work. Do not treat passing offline tests as production certification.
 
-### Evidence Viewer (feature branch)
+### Evidence Viewer, collections, and comparison
 
 See [Evidence Viewer setup and security design](docs/EVIDENCE_VIEWER.md) for the
 private Read & Ask workspace, provenance behavior, and browser verification.
 
 See [Collections and multi-document questions](docs/COLLECTIONS.md) for the next stacked feature.
+
+See [Evidence-grounded comparison](docs/COMPARISON.md) for the final stacked
+feature's supported fact types, conservative labels, and explicit limitations.
+
+The [feature delivery handoff](docs/FEATURE_HANDOFF.md) records branch/review order,
+validation, local run commands, limitations, and a five-minute demonstration.
+
+See [release review and launch commands](docs/RELEASE_REVIEW.md) for the controlled
+smoke-test boundaries, current setup, and comparison limitations.

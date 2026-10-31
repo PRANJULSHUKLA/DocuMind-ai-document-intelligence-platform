@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import AiAssistant from './AiAssistant'
 import DocumentWorkspace from './DocumentWorkspace'
+import ComparisonPanel from './ComparisonPanel'
 import { listCollections, createCollection, editCollection, deleteCollection, askCollection } from '../services/collectionService'
 import { getDocuments, getDocumentView, uploadDocument } from '../services/documentService'
 
@@ -87,6 +88,7 @@ export default function CollectionsWorkspace() {
         <fieldset className="rounded-xl border bg-white p-4"><legend>Collection membership</legend>{documents.length ? documents.map(doc => { const id = doc._id || doc.file_id; return <label key={id} className="block py-1"><input type="checkbox" checked={active.file_ids.includes(id)} disabled={busy || (!active.file_ids.includes(id) && active.file_ids.length >= 10)} onChange={event => membership(id, event.target.checked)} /> {doc.filename} <span className="text-sm text-zinc-500">· {doc.status}</span></label> }) : <p>Upload PDFs below or from Documents.</p>}</fieldset>
         {!members.length && <p>This collection is empty. Add existing documents above.</p>}
         <fieldset className="rounded-xl border bg-white p-4"><legend>Question context</legend><p className="text-sm text-zinc-500">Leave all unchecked to ask across all completed members. Processing and failed documents are skipped.</p>{members.map(doc => { const id = doc._id || doc.file_id; return <label className="block py-1" key={id}><input type="checkbox" disabled={doc.status !== 'completed'} checked={selected.includes(id)} onChange={event => setSelected(previous => event.target.checked ? [...previous, id] : previous.filter(value => value !== id))} /> {doc.filename} · {doc.status}</label> })}</fieldset>
+        <ComparisonPanel key={active.id + active.revision} collectionId={active.id} documents={members} onSourceSelect={openSource} />
         {members.some(doc => doc.status === 'completed') ? <AiAssistant key={active.id} fileId={active.id} filename={active.name} conversation={sessions[active.id] || {}} onConversationChange={updater => setSessions(previous => ({ ...previous, [active.id]: updater(previous[active.id] || {}) }))} askQuestion={(id, question) => askCollection(id, question, selected.length ? selected : undefined)} onSourceSelect={openSource} /> : <p>Questions become available when at least one member completes processing.</p>}
       </>}
       <section className="rounded-xl border bg-white p-4"><label className="block font-medium">Upload multiple PDFs<input aria-label="Upload multiple PDFs" type="file" accept="application/pdf,.pdf" multiple disabled={busy} className="mt-2 block" onChange={event => { bulkUpload(Array.from(event.target.files)); event.target.value = '' }} /></label><p className="mt-2 text-sm text-zinc-500">Uploads appear in Documents; add them to a collection above. Each file processes independently.</p>{uploads.map(row => <p key={row.index} role="status" className="mt-2 text-sm">{row.name}: {row.status} {row.message}</p>)}</section>

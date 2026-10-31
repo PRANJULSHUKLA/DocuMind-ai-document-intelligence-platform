@@ -1,8 +1,8 @@
 # Collections and multi-document questions
 
-Stacked on the Evidence Viewer branch; review that PR first. No feature PR is
-approved for merge. Run the same backend, worker, and frontend commands from
-`README.md`, with the feature checkout as the working directory.
+Originally reviewed as a stack after the Evidence Viewer. The owner authorized
+sequential release merges; see `RELEASE_REVIEW.md` for verification and exact
+backend, worker, and frontend launch commands from the merged main worktree.
 
 Collections are additive records in `document_collections` with `workspace_id`,
 `name`, `file_ids`, `revision`, and `created_at`. Removing membership or deleting a

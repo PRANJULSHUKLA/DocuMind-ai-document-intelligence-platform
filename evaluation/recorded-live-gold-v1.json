@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "recorded_run_id": "documind-e2e-efa07a4e60ba",
+    "recorded_revision": "b3ea3638fe85bcbca4ad29a925c5e924927d36ab",
+    "recorded_at": "2026-10-31T18:39:00.505247+00:00",
+    "input_artifact_sha256": "7eabf66ceed07a1f1a2bf12cf23df8743886fc0c52bac53ac7c511e65b44f007",
+    "annotation": "Manual target-claim annotation of one prior synthetic live answer; no new provider requests. Gold amount/date authored from the synthetic invoice. Raw pre-context retrieval ranking was not recorded. This evaluates returned-source recall, not general Atlas recall. Other answer claims are outside this target annotation."
+  },
+  "cases": [
+    {
+      "id": "recorded-invoice-targets",
+      "sources": [
+        {
+          "source_id": "6ae635cc2152144ec95e842c",
+          "file_id": "6ae635c521086776f71e5fb9",
+          "page_number": 1,
+          "processing_run_id": "b2c563f289d5469ea197aa29582fe500",
+          "content_sha256": "b61fca3b25c60de7fc52c44fcba04405cd54ea293069b1e94f84ac911e6fd6a6",
+          "text": "Synthetic supplier agreement A\n\nEvaluation marker: documind-e2e-efa07a4e60ba\n\nBuyer: Aster Labs. Seller: Cedar Tools.\n\nInvoice payment: USD 100.00 due December 1, 2026.\n\nDelivery destination: Oslo.\n\nBuyer must disclose records.\n\nWarranty duration: 12 months."
+        }
+      ],
+      "relevant_source_ids": [
+        "6ae635cc2152144ec95e842c"
+      ],
+      "allowed_file_ids": [
+        "6ae635c521086776f71e5fb9"
+      ],
+      "supported_claims": [
+        {
+          "text": "USD 100.00",
+          "source_ids": [
+            "6ae635cc2152144ec95e842c"
+          ]
+        },
+        {
+          "text": "December 1, 2026",
+          "source_ids": [
+            "6ae635cc2152144ec95e842c"
+          ]
+        }
+      ],
+      "expect_abstention": false
+    }
+  ]
+}

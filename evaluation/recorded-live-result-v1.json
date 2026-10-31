@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "cases": 1,
+  "counts": {
+    "relevant": 1,
+    "expected": 1,
+    "retrieved": 1,
+    "correct_citations": 1,
+    "citations": 1,
+    "supported_claims": 2,
+    "claims": 2,
+    "isolated": 1,
+    "scoped": 1,
+    "expected_abstentions": 0,
+    "abstentions": 0
+  },
+  "metrics": {
+    "retrieval_recall": 1.0,
+    "retrieval_precision": 1.0,
+    "citation_correctness": 1.0,
+    "annotated_claim_support": 1.0,
+    "scope_isolation": 1.0,
+    "missing_or_conflicting_abstention": null
+  },
+  "observed_latency_ms_mean": 5221.72,
+  "observed_usage": [],
+  "details": [
+    {
+      "id": "recorded-invoice-targets",
+      "recall": 1.0,
+      "supported_claims": 2,
+      "claims": 2,
+      "scope_ok": true
+    }
+  ],
+  "limitations": [
+    "Exact gold annotations measure this corpus only; not general semantic entailment.",
+    "Recorded/replay observations do not measure live Atlas or Gemini quality.",
+    "Missing latency/usage remains null or empty; no cost is estimated."
+  ],
+  "evaluator_runtime_ms": 0.343
+}

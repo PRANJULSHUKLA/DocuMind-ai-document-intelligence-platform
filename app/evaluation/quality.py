@@ -40,7 +40,7 @@ def evaluate(dataset, observations):
         for citation in observation.get('citations', []):
             totals['citations'] += 1
             source = gold.get(citation.get('source_id'))
-            if source and all(citation.get(k) == source.get(k) for k in
+            if source and source['file_id'] in case['allowed_file_ids'] and all(source.get(k) for k in ('source_id', 'file_id', 'processing_run_id', 'content_sha256')) and type(source.get('page_number')) is int and source['page_number'] > 0 and all(citation.get(k) == source.get(k) for k in
                               ('file_id', 'page_number', 'processing_run_id', 'content_sha256')) and citation.get('quote') and citation['quote'] in source['text'] and source['source_id'] in retrieved:
                 valid.add(source['source_id'])
                 totals['correct_citations'] += 1

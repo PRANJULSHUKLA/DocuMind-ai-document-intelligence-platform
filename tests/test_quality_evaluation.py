@@ -36,6 +36,17 @@ def test_claim_needs_all_annotated_sources_and_reported_citation():
     assert evaluate(data, partial)['counts']['supported_claims'] == 2
 
 
+def test_foreign_or_unprovenanced_citations_cannot_count_as_correct():
+    data, observations = fixtures()
+    data['cases'][0]['allowed_file_ids'] = []
+    report = evaluate(data, observations)
+    assert report['counts']['correct_citations'] == 6
+    data, observations = fixtures()
+    data['cases'][0]['sources'][0]['processing_run_id'] = None
+    observations[0]['citations'][0]['processing_run_id'] = None
+    assert evaluate(data, observations)['counts']['correct_citations'] == 6
+
+
 async def test_production_source_builder_preserves_fixture_identity(monkeypatch):
     from app.services import rag_pipeline
     from types import SimpleNamespace

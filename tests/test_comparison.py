@@ -122,3 +122,18 @@ def test_comparison_api_synthetic_two_document_scenario(api, monkeypatch):
 
 def test_malformed_amount_not_partially_extracted():
     assert not comparison.facts('USD 100.123 or USD 1,23.')
+
+
+def test_leading_conditions_and_truncated_clauses_are_not_opposite_obligations():
+    assert not compare('If requested, Buyer must disclose records.', 'Buyer must not disclose records.')['summary']['possible_contradiction']
+    assert not compare('Buyer must disclose records', 'Buyer must not disclose records.')['summary']['possible_contradiction']
+
+
+def test_decimal_obligations_preserve_entire_amount():
+    result = compare('Buyer must pay USD 100.50.', 'Buyer must not pay USD 100.75.')
+    assert result['summary']['possible_contradiction'] == 0
+    assert finding(result, 'Amount (USD)')['classification'] == 'supported_difference'
+
+
+def test_scaled_and_exponential_amounts_are_not_misinterpreted():
+    assert not comparison.facts('USD 100 million and USD 10e3 and USD 20k.')

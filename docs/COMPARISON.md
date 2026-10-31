@@ -39,3 +39,7 @@ The existing Gemini fallback/retry integration, single-document chat, analysis a
 workflow implementations are preserved. Tests cover numerical differences,
 normalized dates, missing information, ambiguous and opposite obligations,
 workspace/member authorization, processing state, API flow and browser navigation.
+
+Obligation extraction requires complete sentences and ignores sentences with
+leading or trailing conditions. Decimal amounts are retained in obligation text;
+scaled/exponential amounts are not interpreted as simple literal amounts.

@@ -10,16 +10,19 @@ from fastapi import HTTPException
 from app.services import collections
 from app.services.document_view import source_fields
 
-AMOUNT = re.compile(r'\b(USD|EUR|GBP|INR)\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)(?!\d|\.\d|,\d)', re.I)
+AMOUNT = re.compile(r'\b(USD|EUR|GBP|INR)\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)(?!\w|\.\d|,\d)(?!\s*(?:million|billion|thousand|[kmb]\b))', re.I)
 DATE = re.compile(r'\b(?:\d{4}-\d{2}-\d{2}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\b', re.I)
-OBLIGATION = re.compile(r'\b([A-Za-z][A-Za-z ]{0,60}?)\s+(must|shall)\s+(not\s+)?([^.!?;\n]{3,160})(?=[.!?;\n]|$)', re.I)
+OBLIGATION = re.compile(r'\b([A-Za-z][A-Za-z ]{0,60}?)\s+(must|shall)\s+(not\s+)?((?:[^.!?;\n]|\.(?=\d)){3,160})(?=[.!?;\n])', re.I)
 CONDITIONAL = re.compile(r'\b(if|unless|except|provided|subject to|may|whether)\b', re.I)
 
 
 def facts(text):
     result = defaultdict(set)
     for match in AMOUNT.finditer(text):
-        result['Amount (' + match[1].upper() + ')'].add(format(Decimal(match[2].replace(',', '')).normalize(), 'f'))
+        value = format(Decimal(match[2].replace(',', '')), 'f')
+        if '.' in value:
+            value = value.rstrip('0').rstrip('.')
+        result['Amount (' + match[1].upper() + ')'].add(value)
     for match in DATE.finditer(text):
         raw = match[0]
         try:
@@ -27,14 +30,16 @@ def facts(text):
         except ValueError:
             continue
         result['Explicit dates'].add(parsed.isoformat())
-    for match in OBLIGATION.finditer(text):
-        if CONDITIONAL.search(match[0]):
+    # Only complete sentences are interpreted; truncation and leading conditions
+    # must not turn a qualified clause into an unconditional obligation.
+    for sentence in re.findall(r'(?:[^.!?;\n]|\.(?=\d))+[.!?;\n]', text):
+        if CONDITIONAL.search(sentence):
             continue
-        subject = ' '.join(match[1].lower().split())
-        action = ' '.join(match[4].lower().split())
-        # Identical subject/action only. Different wording is never a contradiction.
-        key = 'Obligation: ' + subject + ' → ' + action
-        result[key].add('prohibited' if match[3] else 'required')
+        for match in OBLIGATION.finditer(sentence):
+            subject = ' '.join(match[1].lower().split())
+            action = ' '.join(match[4].lower().split())
+            key = 'Obligation: ' + subject + ' → ' + action
+            result[key].add('prohibited' if match[3] else 'required')
     return result
 
 

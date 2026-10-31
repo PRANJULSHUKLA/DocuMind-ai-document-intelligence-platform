@@ -1,7 +1,8 @@
 # Evidence-grounded comparison
 
-This feature is stacked on Collections, which is stacked on Evidence Viewer.
-Review in that order. None of the feature PRs is authorized for merge.
+This feature was reviewed after Collections and Evidence Viewer. The owner
+authorized sequential release merges. See `RELEASE_REVIEW.md` for current
+verification boundaries and local launch commands.
 
 Open Collections, select a collection, and choose two to five completed members
 in Compare documents. A focus controls retrieval. POST

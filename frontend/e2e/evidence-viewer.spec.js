@@ -47,3 +47,35 @@ for (const width of [1440, 390]) {
     expect(failures).toEqual([])
   })
 }
+
+test('collection chat opens the correct document and retains the answer', async ({ page }) => {
+  const second = '507f1f77bcf86cd799439012'
+  const otherSource = { ...source, file_id: second, filename: 'Second agreement.pdf' }
+  const docs = [{ _id: fileId, filename: source.filename, status: 'completed' }, { _id: second, filename: otherSource.filename, status: 'completed' }]
+  const collection = { id: 'project', name: 'Contracts', file_ids: [fileId, second], revision: 1 }
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/content')) return route.fulfill({ contentType: 'application/pdf', body: pdf })
+    let body
+    if (path === '/api/files') body = docs
+    else if (path === '/api/collections') body = [collection]
+    else if (path.endsWith('/chat')) {
+      expect(route.request().postDataJSON().file_ids).toEqual([second])
+      body = { answer: 'The second agreement requires USD 100.', sources: [otherSource] }
+    } else if (path.endsWith('/view')) body = { file_id: second, filename: otherSource.filename, status: 'completed', version: 'version-1', total_pages: 2, processing_run_id: 'run-1', content_sha256: hash, original_available: true, provenance: 'verified' }
+    else body = {}
+    return route.fulfill({ json: body })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Collections', exact: true }).first().click()
+  await page.getByRole('combobox', { name: 'Active collection' }).selectOption('project')
+  await page.getByRole('group', { name: 'Question context' }).getByLabel('Second agreement.pdf · completed').check()
+  await page.getByRole('textbox', { name: 'Ask a question' }).fill('What does the second agreement require?')
+  await page.getByRole('button', { name: 'Ask document' }).click()
+  await page.getByRole('button', { name: 'Open Second agreement.pdf page 2' }).click()
+  await expect(page.locator('canvas').first()).toBeVisible()
+  await expect(page.getByRole('spinbutton', { name: 'Page number' })).toHaveValue('2')
+  await page.getByRole('button', { name: 'Back to collection' }).click()
+  await expect(page.getByText('The second agreement requires USD 100.', { exact: true })).toBeVisible()
+  await page.screenshot({ path: 'test-results/collection-chat.png', fullPage: true })
+})

@@ -25,6 +25,7 @@ import ProcessingPipeline from "./components/ProcessingPipeline";
 import DocumentIntelligence from "./components/DocumentIntelligence";
 import WorkflowPanel from "./components/WorkFlowPanel";
 import DocumentWorkspace from "./components/DocumentWorkspace";
+import CollectionsWorkspace from "./components/CollectionsWorkspace";
 
 import {
   analyzeDocument,
@@ -39,6 +40,7 @@ import {
 ===================================================== */
 
 const VIEWS = {
+  COLLECTIONS: "collections",
   DASHBOARD: "dashboard",
   DOCUMENTS: "documents",
   INTELLIGENCE: "intelligence",
@@ -500,6 +502,7 @@ export default function App() {
           {/* Navigation */}
 
           <nav className="flex-1 space-y-1 p-4">
+            <NavItem icon={<FolderOpen size={17} />} label="Collections" active={activeView === VIEWS.COLLECTIONS} onClick={() => navigate(VIEWS.COLLECTIONS)} />
 
             <NavItem
               icon={
@@ -722,6 +725,7 @@ export default function App() {
         {/* Mobile navigation */}
 
         <div className="flex gap-1 overflow-x-auto border-b border-zinc-200 bg-white px-4 py-2 lg:hidden">
+          <MobileNavItem label="Collections" active={activeView === VIEWS.COLLECTIONS} onClick={() => navigate(VIEWS.COLLECTIONS)} />
 
           <MobileNavItem
             label="Dashboard"
@@ -829,6 +833,8 @@ export default function App() {
             </div>
           )}
 
+
+          {activeView === VIEWS.COLLECTIONS && <CollectionsWorkspace />}
 
           {/* =================================================
               DASHBOARD

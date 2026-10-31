@@ -41,7 +41,7 @@ class RAGPipeline:
             if not text:
                 continue
 
-            normalized = text.casefold()
+            normalized = (chunk.get("file_id"), text.casefold())
 
             if normalized not in seen_text:
                 seen_text.add(normalized)
@@ -153,6 +153,10 @@ Write a complete, evidence-based answer now.
 
         retrieval_ms = (time.perf_counter() - retrieval_start) * 1000
 
+        return await self.answer_chunks(question, chunks, retrieval_ms, overall_start, file_id)
+
+    async def answer_chunks(self, question, chunks, retrieval_ms=0.0, overall_start=None, file_id="collection"):
+        overall_start = overall_start or time.perf_counter()
         if not chunks:
             total_ms = (time.perf_counter() - overall_start) * 1000
 

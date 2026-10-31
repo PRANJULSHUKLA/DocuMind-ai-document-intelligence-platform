@@ -477,3 +477,6 @@ async def get_status(file_id: str, identity: Identity = Depends(current_identity
 
 from app.routes.document_view import router as document_view_router
 app.include_router(document_view_router)
+
+from app.routes.collections import router as collections_router
+app.include_router(collections_router)

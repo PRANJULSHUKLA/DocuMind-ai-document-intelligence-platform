@@ -66,3 +66,21 @@ async def delete(collection_id: str, identity: Identity = Depends(current_identi
 @router.post('/{collection_id}/chat')
 async def ask(collection_id: str, body: Ask, identity: Identity = Depends(current_identity)):
     return await mapped(service.ask(collection_id, identity.workspace_id, body.question, body.file_ids))
+
+
+class Compare(BaseModel):
+    file_ids: list[str] = Field(min_length=2, max_length=5)
+    focus: str = Field(default='Key amounts, dates and obligations', min_length=2, max_length=500)
+
+    @field_validator('focus')
+    @classmethod
+    def clean(cls, value):
+        if not value.strip():
+            raise ValueError('Enter a comparison focus.')
+        return value.strip()
+
+
+@router.post('/{collection_id}/compare')
+async def compare(collection_id: str, body: Compare, identity: Identity = Depends(current_identity)):
+    from app.services.comparison import compare as run
+    return await mapped(run(collection_id, identity.workspace_id, body.file_ids, body.focus))

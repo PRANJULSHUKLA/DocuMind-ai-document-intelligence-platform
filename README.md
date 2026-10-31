@@ -176,3 +176,6 @@ See [Evidence Viewer setup and security design](docs/EVIDENCE_VIEWER.md) for the
 private Read & Ask workspace, provenance behavior, and browser verification.
 
 See [Collections and multi-document questions](docs/COLLECTIONS.md) for the next stacked feature.
+
+See [Evidence-grounded comparison](docs/COMPARISON.md) for the final stacked
+feature's supported fact types, conservative labels, and explicit limitations.

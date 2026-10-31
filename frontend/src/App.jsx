@@ -451,6 +451,9 @@ export default function App() {
       }
     }
 
+    if (view === VIEWS.DOCUMENTS) {
+      setRefreshKey(value => value + 1);
+    }
     setActiveView(view);
   }
 

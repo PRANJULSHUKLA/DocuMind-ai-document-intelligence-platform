@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
+import { Buffer } from 'node:buffer'
 import crypto from 'node:crypto'
 const fileId = '507f1f77bcf86cd799439011'
 const pdf = fs.readFileSync(new URL('./fixtures/synthetic.pdf', import.meta.url))
@@ -43,6 +44,7 @@ for (const width of [1440, 390]) {
     if (width < 1024) await page.getByRole('tab', { name: 'document', exact: true }).click()
     await page.getByRole('textbox', { name: 'Search document' }).fill('100')
     await expect(page.getByRole('button', { name: /Page 2 Payment USD/ })).toBeVisible()
+    await page.evaluate(() => window.scrollTo(0, 0))
     await page.screenshot({ path: `test-results/evidence-${width}.png`, fullPage: true })
     expect(failures).toEqual([])
   })
@@ -84,15 +86,18 @@ test('synthetic comparison exposes differences and opens original evidence', asy
   const second = '507f1f77bcf86cd799439012'
   const docs = [{ _id: fileId, filename: 'A.pdf', status: 'completed' }, { _id: second, filename: 'B.pdf', status: 'completed' }]
   const evidence = { ...source, file_id: second, filename: 'B.pdf', evidence_id: 'e2' }
+  const pdf200 = Buffer.from(pdf.toString('binary').replaceAll('USD 100', 'USD 200'), 'binary')
+  const hash200 = crypto.createHash('sha256').update(pdf200).digest('hex')
+  const evidenceA = { ...source, filename: 'A.pdf', evidence_id: 'e1', content_sha256: hash200, excerpt: source.excerpt.replace('100', '200') }
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname
-    if (path.endsWith('/content')) return route.fulfill({ contentType: 'application/pdf', body: pdf })
+    if (path.endsWith('/content')) return route.fulfill({ contentType: 'application/pdf', body: path.includes(fileId) ? pdf200 : pdf })
     let body
     if (path === '/api/files') body = docs
     else if (path === '/api/collections') body = [{ id: 'project', name: 'Compare contracts', file_ids: [fileId, second], revision: 1 }]
     else if (path.endsWith('/compare')) {
       expect(route.request().postDataJSON().file_ids).toEqual([fileId, second])
-      body = { schema_version: 1, summary: { supported_difference: 1 }, limitations: ['Retrieved evidence only; no full-document completeness claim.'], sources: [evidence], findings: [{ topic: 'Amount (USD)', classification: 'supported_difference', explanation: 'Explicit retrieved amounts differ; no contradiction established.', documents: [{ file_id: fileId, filename: 'A.pdf', facts: [] }, { file_id: second, filename: 'B.pdf', facts: [{ values: ['100'], evidence_id: 'e2' }] }] }] }
+      body = { schema_version: 1, summary: { supported_difference: 1 }, limitations: ['Retrieved evidence only; no full-document completeness claim.'], sources: [evidenceA, evidence], findings: [{ topic: 'Amount (USD)', classification: 'supported_difference', explanation: 'Explicit retrieved amounts differ; no contradiction established.', documents: [{ file_id: fileId, filename: 'A.pdf', facts: [{ values: ['200'], evidence_id: 'e1' }] }, { file_id: second, filename: 'B.pdf', facts: [{ values: ['100'], evidence_id: 'e2' }] }] }] }
     } else if (path.endsWith('/view')) body = { file_id: second, filename: 'B.pdf', status: 'completed', version: 'version-1', total_pages: 2, processing_run_id: 'run-1', content_sha256: hash, original_available: true, provenance: 'verified' }
     else body = {}
     return route.fulfill({ json: body })
@@ -105,6 +110,7 @@ test('synthetic comparison exposes differences and opens original evidence', asy
   await panel.getByLabel('B.pdf · completed').check()
   await panel.getByRole('button', { name: 'Compare selected documents' }).click()
   await expect(panel.getByText('Supported difference', { exact: true })).toBeVisible()
+  await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: 'test-results/comparison.png', fullPage: true })
   await panel.getByRole('button', { name: 'Open comparison B.pdf page 2' }).click()
   await expect(page.locator('canvas').first()).toBeVisible()

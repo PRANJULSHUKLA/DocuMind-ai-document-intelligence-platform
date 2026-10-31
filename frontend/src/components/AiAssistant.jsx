@@ -14,11 +14,12 @@ import { askDocument } from "../services/documentService";
 export default function AIAssistant({
   fileId,
   filename,
+  conversation, onConversationChange, onSourceSelect,
 }) {
-  const [question, setQuestion] =
+  const [localQuestion, setLocalQuestion] =
     React.useState("");
 
-  const [messages, setMessages] =
+  const [localMessages, setLocalMessages] =
     React.useState([]);
 
   const [loading, setLoading] =
@@ -26,6 +27,17 @@ export default function AIAssistant({
 
   const [error, setError] =
     React.useState("");
+
+  const question = conversation?.question ?? localQuestion;
+  const messages = conversation?.messages ?? localMessages;
+  function setQuestion(value) {
+    if (onConversationChange) onConversationChange(previous => ({ ...previous, question: value }));
+    else setLocalQuestion(value);
+  }
+  function setMessages(updater) {
+    if (onConversationChange) onConversationChange(previous => ({ ...previous, messages: updater(previous.messages || []) }));
+    else setLocalMessages(updater);
+  }
 
   async function handleAsk(
     event
@@ -194,9 +206,8 @@ export default function AIAssistant({
             (message) => (
               <Message
                 key={message.id}
-                message={
-                  message
-                }
+                message={message}
+                onSourceSelect={onSourceSelect}
               />
             )
           )
@@ -247,6 +258,7 @@ export default function AIAssistant({
         <div className="flex items-end gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-2">
 
           <textarea
+            aria-label="Ask a question"
             value={question}
             onChange={(event) =>
               setQuestion(
@@ -260,6 +272,7 @@ export default function AIAssistant({
 
           <button
             type="submit"
+            aria-label="Ask document"
             disabled={
               loading ||
               !question.trim()
@@ -278,7 +291,7 @@ export default function AIAssistant({
 }
 
 function Message({
-  message,
+  message, onSourceSelect,
 }) {
   const isUser =
     message.role ===
@@ -338,11 +351,15 @@ function Message({
                     source,
                     index
                   ) => (
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => onSourceSelect?.(source)}
+                      disabled={!onSourceSelect || !source.page_number}
+                      aria-label={`Open ${source.filename || "document"} page ${source.page_number}`}
                       key={
                         `${source.chunk_index}-${index}`
                       }
-                      className="flex gap-2 rounded-xl bg-white p-2.5"
+                      className="flex w-full gap-2 rounded-xl border border-transparent bg-white p-2.5 text-left hover:border-zinc-400 focus-visible:outline-2 disabled:opacity-50"
                     >
 
                       <FileText
@@ -368,7 +385,7 @@ function Message({
 
                       </div>
 
-                    </div>
+                    </button>
                   )
                 )}
 

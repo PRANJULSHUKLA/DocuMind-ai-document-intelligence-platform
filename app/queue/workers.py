@@ -1,6 +1,7 @@
 
 import asyncio
 import logging
+import hashlib
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -97,6 +98,11 @@ async def _process_file_async(
             raise FileNotFoundError("Uploaded PDF is missing.")
         if source_path.suffix.lower() != ".pdf":
             raise ValueError("Only PDF files can be processed.")
+
+        with source_path.open("rb") as stream:
+            source_digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        if document.get("content_sha256") and source_digest != document["content_sha256"]:
+            raise ValueError("Original PDF changed before processing.")
 
         logger.info("Starting document processing: %s", file_id)
 
@@ -264,6 +270,7 @@ async def _process_file_async(
                 text=text,
                 embedding=embedding,
                 processing_run_id=run_id,
+                content_sha256=source_digest,
             )
 
             await chunks_collection.insert_one(
@@ -284,6 +291,10 @@ async def _process_file_async(
             2,
         )
 
+        with source_path.open("rb") as stream:
+            if hashlib.file_digest(stream, "sha256").hexdigest() != source_digest:
+                raise ValueError("Original PDF changed during processing.")
+
         published = await files_collection.update_one(
             owned,
             {
@@ -295,6 +306,7 @@ async def _process_file_async(
                     "processing_time": processing_time,
                     "processing_error": None,
                     "active_processing_run_id": run_id,
+                    "content_sha256": source_digest,
                 },
                 "$unset": {"processing_lease_until": ""},
             },

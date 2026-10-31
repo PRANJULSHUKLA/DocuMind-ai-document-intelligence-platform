@@ -71,3 +71,20 @@ async def test_metadata_without_text_does_not_trigger_generation(pipeline):
     result = await service.run("file", "Question?", "test-workspace")
     assert result["sources"] == []
     generated.assert_not_called()
+
+async def test_enriched_source_is_exact_context_excerpt(pipeline, monkeypatch):
+    from app.constants.rag import RAGConfig
+    from bson import ObjectId
+    service, generated = pipeline
+    monkeypatch.setattr(RAGConfig, 'MAX_CONTEXT_LENGTH', 180)
+    chunk = {'_id': ObjectId(), 'file_id': 'file', 'filename': 'a.pdf', 'page_number': 1,
+             'chunk_index': 0, 'processing_run_id': 'run', 'content_sha256': 'a' * 64,
+             'text': 'Payment evidence ' * 40}
+    service.retriever.retrieve_chunks.return_value = [chunk]
+    result = await service.run('file', 'Question?', 'test-workspace')
+    source = result['sources'][0]
+    assert source['source_id'] == str(chunk['_id'])
+    assert source['processing_run_id'] == 'run'
+    assert source['content_sha256'] == 'a' * 64
+    assert source['excerpt'] in generated.call_args.kwargs['contents']
+    assert len(source['excerpt']) < len(chunk['text'])

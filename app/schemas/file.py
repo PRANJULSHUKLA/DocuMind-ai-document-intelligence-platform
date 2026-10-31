@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 class FileSchema(BaseModel):
 
+    content_sha256: str | None = None
     filename: str
 
     status: str

@@ -120,3 +120,12 @@ async def test_new_attempt_fences_all_worker_state_updates(worker, store):
 async def test_legacy_job_still_accepts_two_arguments(worker, store):
     await workers._process_file_async(FILE_ID, str(worker[0]))
     assert store.find_one_and_update.await_args.args[0]["enqueue_attempt"] == {"$exists": False}
+
+async def test_changed_original_cannot_publish_provenance(worker, store, monkeypatch):
+    def mutate(text):
+        worker[0].write_bytes(b'%PDF-changed')
+        return [.1, .2]
+    monkeypatch.setattr(workers, 'generate_embedding', mutate)
+    with pytest.raises(RuntimeError):
+        await workers._process_file_async(FILE_ID, str(worker[0]))
+    assert store.update_one.await_args.args[1]['$set']['status'] == 'failed'

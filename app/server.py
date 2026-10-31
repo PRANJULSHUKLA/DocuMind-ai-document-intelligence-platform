@@ -1,6 +1,7 @@
 
 import os
 import logging
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -197,6 +198,7 @@ async def upload(file: UploadFile = File(...), identity: Identity = Depends(curr
             filename=filename,
             status=FileStatus.SAVING,
             workspace_id=identity.workspace_id,
+            content_sha256=hashlib.sha256(content).hexdigest(),
         )
 
         inserted = await files_collection.insert_one({
@@ -269,7 +271,7 @@ async def retry_saved_upload(file_id: str, identity: Identity = Depends(current_
 # Agent 1: document Q&A
 # ---------------------------------------------------------
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse, response_model_exclude_none=True)
 async def chat(request: ChatRequest, identity: Identity = Depends(current_identity)):
     try:
         service = KnowledgeService()
@@ -471,3 +473,7 @@ async def get_status(file_id: str, identity: Identity = Depends(current_identity
             if document.get("processing_error") else None
         ),
     }
+
+
+from app.routes.document_view import router as document_view_router
+app.include_router(document_view_router)

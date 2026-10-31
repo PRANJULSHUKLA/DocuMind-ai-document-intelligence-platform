@@ -4,6 +4,8 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import App from './App'
 import { getDocuments } from './services/documentService'
 
+vi.mock('./components/DocumentWorkspace', () => ({ default: ({ document }) => <div>{document.filename}</div> }))
+
 vi.mock('./services/documentService', () => ({
   getDocuments: vi.fn(),
   getDocumentStatus: vi.fn(),

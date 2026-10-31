@@ -65,3 +65,13 @@ export async function askDocument(fileId, question) {
 }
 
 export default api;
+
+export async function getDocumentView(fileId, signal) {
+  return (await api.get(`/files/${encodeURIComponent(fileId)}/view`, { signal })).data;
+}
+export async function getDocumentPdf(fileId, version, signal) {
+  return (await api.get(`/files/${encodeURIComponent(fileId)}/content`, { params: { version }, responseType: 'arraybuffer', signal })).data;
+}
+export async function searchDocument(fileId, q, signal) {
+  return (await api.get(`/files/${encodeURIComponent(fileId)}/search`, { params: { q }, signal })).data;
+}

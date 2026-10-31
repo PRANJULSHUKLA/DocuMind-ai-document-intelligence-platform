@@ -7,6 +7,7 @@ import * as documents from '../services/documentService'
 vi.mock('../services/collectionService', () => ({ listCollections: vi.fn(), createCollection: vi.fn(), editCollection: vi.fn(), deleteCollection: vi.fn(), askCollection: vi.fn() }))
 vi.mock('../services/documentService', () => ({ getDocuments: vi.fn(), getDocumentView: vi.fn(), uploadDocument: vi.fn() }))
 vi.mock('./DocumentWorkspace', () => ({ default: () => <div>Reader</div> }))
+vi.mock('../services/reportService', () => ({ listReports: vi.fn().mockResolvedValue([]) }))
 
 test('creates collection and preserves independent upload failures', async () => {
   collections.listCollections.mockResolvedValue([])

@@ -95,4 +95,6 @@ async def compare(collection_id, workspace, ids, focus):
     if not 2 <= len(ids) <= 5:
         raise HTTPException(400, 'Compare two to five distinct documents.')
     extraction = await structured_facts.extract(collection_id, workspace, ids)
-    return compare_facts(extraction, focus)
+    result = compare_facts(extraction, focus)
+    from app.services.comparison_reports import digest
+    return {**result, 'review_digest': digest(result)}

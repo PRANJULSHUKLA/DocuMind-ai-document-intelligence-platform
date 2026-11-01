@@ -13,7 +13,7 @@ from app.services.document_view import source_fields
 AMOUNT = re.compile(r'\b(USD|EUR|GBP|INR)\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)(?!\w|\.\d|,\d)(?!\s*(?:million|billion|thousand|[kmb]\b))', re.I)
 DATE = re.compile(r'\b(?:\d{4}-\d{2}-\d{2}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})\b', re.I)
 OBLIGATION = re.compile(r'\b([A-Za-z][A-Za-z ]{0,60}?)\s+(must|shall)\s+(not\s+)?((?:[^.!?;\n]|\.(?=\d)){3,160})(?=[.!?;\n])', re.I)
-CONDITIONAL = re.compile(r'\b(if|unless|except|provided|subject to|may|whether)\b', re.I)
+CONDITIONAL = re.compile(r'\b(if|unless|except|provided|subject to|may|whether|when|until|after|before|during|upon|on receipt|on approval|as long as|in case|where)\b', re.I)
 
 
 def facts(text):

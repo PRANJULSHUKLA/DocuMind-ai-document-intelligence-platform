@@ -7,6 +7,33 @@ const pdf = fs.readFileSync(new URL('./fixtures/synthetic.pdf', import.meta.url)
 const hash = crypto.createHash('sha256').update(pdf).digest('hex')
 const source = { file_id: fileId, source_id: 'chunk-2', filename: 'Synthetic agreement.pdf', page_number: 2, chunk_index: 1, score: .9, processing_run_id: 'run-1', content_sha256: hash, excerpt: 'Payment USD 100 due December 1, 2026.' }
 
+test('explicit bounded semantic mode displays evidence facts and uncertainty', async ({ page }) => {
+  const second = '507f1f77bcf86cd799439012'
+  let calls = 0
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/api/files') return route.fulfill({ json: [{ _id: fileId, filename: 'A.pdf', status: 'completed' }, { _id: second, filename: 'B.pdf', status: 'completed' }] })
+    if (path === '/api/collections') return route.fulfill({ json: [{ id: 'project', name: 'Semantic examples', file_ids: [fileId, second], revision: 1 }] })
+    if (path.endsWith('/compare-semantic')) {
+      calls++
+      return route.fulfill({ json: { summary: { insufficient_evidence: 1 }, limitations: ['Qualified clauses require review.'], findings: [{ topic: 'Normalized obligation', classification: 'insufficient_evidence', explanation: 'Conditions require human review.', documents: [] }], sources: [], extracted_facts: [{ fact_id: 'f1', kind: 'obligation', value: { party: 'buyer', action: 'pay unless approved' }, uncertainty: 'qualified_clause', quotation: 'Buyer must pay unless approved.', source: { filename: 'A.pdf', page_number: 1 } }] } })
+    }
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Collections', exact: true }).first().click()
+  await page.getByRole('combobox', { name: 'Active collection' }).selectOption('project')
+  const panel = page.getByRole('region', { name: 'Document comparison' })
+  await panel.getByLabel('Use validated obligation comparison (bounded)').check()
+  await panel.getByLabel('A.pdf · completed').check()
+  await panel.getByLabel('B.pdf · completed').check()
+  await panel.getByRole('button', { name: 'Compare selected documents' }).click()
+  await expect(panel.getByText('Insufficient evidence', { exact: true })).toBeVisible()
+  await panel.getByText('Review structured evidence facts (1)').click()
+  await expect(panel.getByText(/qualified_clause/)).toBeVisible()
+  expect(calls).toBe(1)
+})
+
 for (const width of [1440, 390]) {
   test(`PDF canvas, navigation, citation and preserved chat at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })

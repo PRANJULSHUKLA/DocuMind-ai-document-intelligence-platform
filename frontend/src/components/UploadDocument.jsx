@@ -1,4 +1,3 @@
-
 import { useRef, useState } from "react";
 
 import {
@@ -45,47 +44,36 @@ function normalizeStatus(status) {
 }
 
 function getErrorMessage(error, fallback) {
-  const detail = error?.response?.data?.detail || error?.response?.data?.message;
+  const detail =
+    error?.response?.data?.detail || error?.response?.data?.message;
 
   if (typeof detail === "string") {
     return detail;
   }
 
   if (Array.isArray(detail)) {
-    return detail
-      .map((item) => item?.msg || String(item))
-      .join(", ");
+    return detail.map((item) => item?.msg || String(item)).join(", ");
   }
 
   return error?.message || fallback;
 }
 
-function PipelineStep({
-  label,
-  active = false,
-  completed = false,
-}) {
+function PipelineStep({ label, active = false, completed = false }) {
   return (
     <div className="flex items-center gap-2">
       <div
         className={`flex h-5 w-5 items-center justify-center rounded-full ${
           completed
-            ? "bg-emerald-100 text-emerald-600"
+            ? "bg-success-soft text-success"
             : active
-              ? "bg-zinc-900 text-white"
-              : "bg-zinc-100 text-zinc-400"
+              ? "bg-accent text-on-accent"
+              : "bg-raised text-secondary"
         }`}
       >
         {completed ? "✓" : "•"}
       </div>
 
-      <span
-        className={
-          completed || active
-            ? "text-zinc-800"
-            : "text-zinc-400"
-        }
-      >
+      <span className={completed || active ? "text-primary" : "text-secondary"}>
         {label}
       </span>
     </div>
@@ -129,7 +117,9 @@ export default function UploadDocument({ onUploaded }) {
     if (!isPdf) {
       setSelectedFile(null);
       event.target.value = "";
-      setError("Please select a PDF file. Other file formats are not supported by this upload flow.");
+      setError(
+        "Please select a PDF file. Other file formats are not supported by this upload flow.",
+      );
       return;
     }
 
@@ -144,7 +134,7 @@ export default function UploadDocument({ onUploaded }) {
       setSelectedFile(null);
       event.target.value = "";
       setError(
-        `The file exceeds the ${MAX_FILE_SIZE_MB} MB limit. Please choose a smaller PDF.`
+        `The file exceeds the ${MAX_FILE_SIZE_MB} MB limit. Please choose a smaller PDF.`,
       );
       return;
     }
@@ -194,29 +184,37 @@ export default function UploadDocument({ onUploaded }) {
           setError(
             result?.error ||
               result?.message ||
-              "Document processing failed. Check the backend logs for the cause."
+              "Document processing failed. Check the backend logs for the cause.",
           );
           return;
         }
 
         // Retry an unconfirmed dispatch against the same saved file/job ID.
         // Do not automatically retry a terminal OCR/model failure.
-        if (attempt > 0 && attempt % 6 === 0 && recoveries < 3 &&
-            ["saving", "pending", "uncertain", "not_found"].includes(result?.enqueue_state)) {
+        if (
+          attempt > 0 &&
+          attempt % 6 === 0 &&
+          recoveries < 3 &&
+          ["saving", "pending", "uncertain", "not_found"].includes(
+            result?.enqueue_state,
+          )
+        ) {
           recoveries += 1;
-          try { await retryDocumentProcessing(fileId); } catch { /* Keep polling; explicit retry remains available. */ }
+          try {
+            await retryDocumentProcessing(fileId);
+          } catch {
+            /* Keep polling; explicit retry remains available. */
+          }
         }
 
-        await new Promise((resolve) =>
-          setTimeout(resolve, POLL_INTERVAL_MS)
-        );
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
       } catch (err) {
         setUploading(false);
         setError(
           getErrorMessage(
             err,
-            "Unable to check document status. Check whether the backend is running."
-          )
+            "Unable to check document status. Check whether the backend is running.",
+          ),
         );
         return;
       }
@@ -224,7 +222,7 @@ export default function UploadDocument({ onUploaded }) {
 
     setUploading(false);
     setError(
-      "Processing is taking longer than expected. The document may still be processing. Check its status before uploading it again."
+      "Processing is taking longer than expected. The document may still be processing. Check its status before uploading it again.",
     );
   }
 
@@ -244,15 +242,10 @@ export default function UploadDocument({ onUploaded }) {
         ? await retryDocumentProcessing(recoveryFileId)
         : await uploadDocument(file);
 
-      const fileId =
-        result?.file_id ||
-        result?._id ||
-        result?.id;
+      const fileId = result?.file_id || result?._id || result?.id;
 
       if (!fileId) {
-        throw new Error(
-          "The backend response did not contain a document ID."
-        );
+        throw new Error("The backend response did not contain a document ID.");
       }
 
       setRecoveryFileId(String(fileId));
@@ -266,35 +259,47 @@ export default function UploadDocument({ onUploaded }) {
       setError(
         getErrorMessage(
           err,
-          "Unable to upload the document. Check the backend and try again."
-        )
+          "Unable to upload the document. Check the backend and try again.",
+        ),
       );
     }
   }
 
-  const progressWidth = {
-    queued: "10%",
-    processing: "25%",
-    extracting_text: "45%",
-    creating_knowledge_base: "65%",
-    creating_chunk_embeddings: "85%",
-  }[status] || "95%";
+  const progressWidth =
+    {
+      queued: "10%",
+      processing: "25%",
+      extracting_text: "45%",
+      creating_knowledge_base: "65%",
+      creating_chunk_embeddings: "85%",
+    }[status] || "95%";
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div
+      className="upload-zone mx-auto w-full max-w-3xl rounded-xl border border-dashed border-strong-line bg-muted px-4 py-6"
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (!uploading) event.dataTransfer.dropEffect = "copy";
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        if (!uploading)
+          handleFileSelect({
+            target: { files: event.dataTransfer.files, value: "" },
+          });
+      }}
+    >
       <div className="flex justify-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-raised">
           <Upload size={22} />
         </div>
       </div>
 
-      <h3 className="mt-4 text-center font-semibold">
-        Analyze a new document
-      </h3>
+      <h3 className="mt-4 text-center font-semibold">Add a document</h3>
 
-      <p className="mx-auto mt-2 max-w-md text-center text-sm text-zinc-500">
-        Upload a PDF contract, policy, report, or other business document
-        to start the document intelligence pipeline.
+      <p className="mx-auto mt-2 max-w-md text-center text-sm text-secondary">
+        Upload a PDF contract, policy, report, or other business document to
+        start. Choose a file or drop it here. PDF only, up to 25 MB.
       </p>
 
       <input
@@ -302,7 +307,9 @@ export default function UploadDocument({ onUploaded }) {
         type="file"
         accept=".pdf,application/pdf"
         onChange={handleFileSelect}
-        className="hidden"
+        aria-label="Choose PDF file"
+        className="sr-only"
+        tabIndex={-1}
         disabled={uploading}
       />
 
@@ -314,7 +321,7 @@ export default function UploadDocument({ onUploaded }) {
               setError("");
               inputRef.current?.click();
             }}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-on-accent hover:bg-accent-hover"
           >
             <Upload size={16} />
             Choose PDF
@@ -323,10 +330,10 @@ export default function UploadDocument({ onUploaded }) {
       )}
 
       {selectedFile && (
-        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-line bg-muted p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface">
                 <FileText size={17} />
               </div>
 
@@ -335,7 +342,7 @@ export default function UploadDocument({ onUploaded }) {
                   {selectedFile.name}
                 </p>
 
-                <p className="text-xs text-zinc-400">
+                <p className="text-xs text-secondary">
                   {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
                 </p>
               </div>
@@ -346,7 +353,7 @@ export default function UploadDocument({ onUploaded }) {
                 type="button"
                 onClick={clearFile}
                 aria-label="Remove selected file"
-                className="rounded-lg p-2 text-zinc-400 hover:bg-white hover:text-zinc-900"
+                className="rounded-lg p-2 text-secondary hover:bg-surface hover:text-primary"
               >
                 <X size={16} />
               </button>
@@ -357,39 +364,42 @@ export default function UploadDocument({ onUploaded }) {
             <button
               type="button"
               onClick={handleUpload}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-on-accent hover:bg-accent-hover"
             >
               <Upload size={16} />
-              {recoveryFileId ? "Retry processing saved PDF" : status === "failed" || error
-                ? "Try upload again"
-                : "Start analysis"}
+              {recoveryFileId
+                ? "Retry processing saved PDF"
+                : status === "failed" || error
+                  ? "Try upload again"
+                  : "Upload and process"}
             </button>
           )}
         </div>
       )}
 
       {uploading && (
-        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-raised">
               <Loader2 size={21} className="animate-spin" />
             </div>
 
             <div className="min-w-0">
-              <p className="text-sm font-semibold">
-                Processing document
-              </p>
+              <p className="text-sm font-semibold">Processing document</p>
 
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-secondary">
                 {statusLabels[status] || "Processing..."}
               </p>
             </div>
           </div>
 
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-zinc-100">
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-raised">
             <div
-              className="h-full rounded-full bg-zinc-900 transition-all duration-700"
+              className="h-full rounded-full bg-accent transition-all duration-150"
               style={{ width: progressWidth }}
+              role="progressbar"
+              aria-label="Processing stage"
+              aria-valuetext={statusLabels[status] || status}
             />
           </div>
 
@@ -419,10 +429,9 @@ export default function UploadDocument({ onUploaded }) {
             <PipelineStep
               label="Knowledge base"
               active={status === "creating_knowledge_base"}
-              completed={[
-                "creating_chunk_embeddings",
-                "completed",
-              ].includes(status)}
+              completed={["creating_chunk_embeddings", "completed"].includes(
+                status,
+              )}
             />
 
             <PipelineStep
@@ -435,19 +444,14 @@ export default function UploadDocument({ onUploaded }) {
       )}
 
       {!uploading && status === "completed" && (
-        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+        <div className="mx-auto mt-6 max-w-md rounded-2xl border border-success bg-success-soft p-6">
           <div className="flex items-center gap-3">
-            <CheckCircle2
-              size={24}
-              className="text-emerald-600"
-            />
+            <CheckCircle2 size={24} className="text-success" />
 
             <div>
-              <p className="font-semibold text-emerald-900">
-                Document ready
-              </p>
+              <p className="font-semibold text-success">Document ready</p>
 
-              <p className="mt-1 text-sm text-emerald-700">
+              <p className="mt-1 text-sm text-success">
                 AI processing has completed successfully.
               </p>
             </div>
@@ -458,7 +462,7 @@ export default function UploadDocument({ onUploaded }) {
       {error && (
         <div
           role="alert"
-          className="mx-auto mt-4 flex max-w-md items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          className="mx-auto mt-4 flex max-w-md items-start gap-2 rounded-xl border border-danger bg-danger-soft p-4 text-sm text-danger"
         >
           <AlertCircle size={17} className="mt-0.5 shrink-0" />
           <span>{error}</span>

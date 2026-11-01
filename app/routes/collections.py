@@ -84,3 +84,13 @@ class Compare(BaseModel):
 async def compare(collection_id: str, body: Compare, identity: Identity = Depends(current_identity)):
     from app.services.comparison import compare as run
     return await mapped(run(collection_id, identity.workspace_id, body.file_ids, body.focus))
+
+
+class Extract(BaseModel):
+    file_ids: list[str] = Field(min_length=1, max_length=5)
+
+
+@router.post('/{collection_id}/facts')
+async def extract_facts(collection_id: str, body: Extract, identity: Identity = Depends(current_identity)):
+    from app.services.structured_facts import extract
+    return await mapped(extract(collection_id, identity.workspace_id, body.file_ids))

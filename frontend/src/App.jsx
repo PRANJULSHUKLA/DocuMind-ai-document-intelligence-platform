@@ -1,11 +1,10 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Activity,
+  ArrowUpRight,
+  CheckCircle2,
+  HelpCircle,
   Bot,
   BrainCircuit,
   ChevronRight,
@@ -20,6 +19,16 @@ import {
   Workflow,
 } from "lucide-react";
 
+import ThemeToggle from "./components/ThemeToggle";
+import {
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  ListHeader,
+  Skeleton,
+  StatusMessage,
+} from "./components/ui";
 import UploadDocument from "./components/UploadDocument";
 import ProcessingPipeline from "./components/ProcessingPipeline";
 import DocumentIntelligence from "./components/DocumentIntelligence";
@@ -34,7 +43,6 @@ import {
   getDocuments,
 } from "./services/documentService";
 
-
 /* =====================================================
    CONSTANTS
 ===================================================== */
@@ -48,65 +56,33 @@ const VIEWS = {
   ASSISTANT: "assistant",
 };
 
-
 /* =====================================================
    APP
 ===================================================== */
 
 export default function App() {
+  const [workspaceInfo, setWorkspaceInfo] = useState(false);
+  const [documentsError, setDocumentsError] = useState("");
   const [readingSessions, setReadingSessions] = useState({});
-  const [
-    activeView,
-    setActiveView,
-  ] = useState(
-    VIEWS.DASHBOARD
-  );
+  const [activeView, setActiveView] = useState(VIEWS.DASHBOARD);
 
-  const [
-    documents,
-    setDocuments,
-  ] = useState([]);
+  const [documents, setDocuments] = useState([]);
 
-  const [
-    activeDocument,
-    setActiveDocument,
-  ] = useState(null);
+  const [activeDocument, setActiveDocument] = useState(null);
 
-  const [
-    analysis,
-    setAnalysis,
-  ] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
 
-  const [
-    workflow,
-    setWorkflow,
-  ] = useState(null);
+  const [workflow, setWorkflow] = useState(null);
 
-  const [
-    loadingDocuments,
-    setLoadingDocuments,
-  ] = useState(true);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
 
-  const [
-    analyzing,
-    setAnalyzing,
-  ] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
-  const [
-    generatingWorkflow,
-    setGeneratingWorkflow,
-  ] = useState(false);
+  const [generatingWorkflow, setGeneratingWorkflow] = useState(false);
 
-  const [
-    pageError,
-    setPageError,
-  ] = useState("");
+  const [pageError, setPageError] = useState("");
 
-  const [
-    refreshKey,
-    setRefreshKey,
-  ] = useState(0);
-
+  const [refreshKey, setRefreshKey] = useState(0);
 
   /* ===================================================
      LOAD DOCUMENTS
@@ -118,30 +94,28 @@ export default function App() {
     async function loadDocuments() {
       try {
         setLoadingDocuments(true);
-        setPageError("");
+        setDocumentsError("");
 
-        const result =
-          await getDocuments();
+        const result = await getDocuments();
 
         if (cancelled) {
           return;
         }
 
-        const normalized =
-          Array.isArray(result)
-            ? result
-            : result?.files || [];
+        const normalized = Array.isArray(result) ? result : result?.files || [];
 
-        setDocuments(
-          normalized
-        );
-
+        setDocuments(normalized);
       } catch (error) {
         if (!cancelled) {
-          setPageError(
-            error?.response?.data?.detail ||
-              error?.message ||
-              "Unable to load documents."
+          setDocumentsError(
+            (error?.response?.status === 401
+              ? "Sign-in required. Please sign in again. "
+              : error?.response?.status === 403
+                ? "Access to this workspace was denied. "
+                : "") +
+              (error?.response?.data?.detail ||
+                error?.message ||
+                "Unable to load documents."),
           );
         }
       } finally {
@@ -158,62 +132,39 @@ export default function App() {
     };
   }, [refreshKey]);
 
-
   /* ===================================================
      DERIVED DATA
   =================================================== */
 
-  const completedDocuments =
-    useMemo(
-      () =>
-        documents.filter(
-          (document) =>
-            document.status ===
-            "completed"
-        ),
-      [documents]
-    );
+  const completedDocuments = useMemo(
+    () => documents.filter((document) => document.status === "completed"),
+    [documents],
+  );
 
-  const processingDocuments =
-    useMemo(
-      () =>
-        documents.filter(
-          (document) =>
-            document.status !==
-              "completed" &&
-            document.status !==
-              "failed"
-        ),
-      [documents]
-    );
+  const processingDocuments = useMemo(
+    () =>
+      documents.filter(
+        (document) =>
+          document.status !== "completed" && document.status !== "failed",
+      ),
+    [documents],
+  );
 
-  const failedDocuments =
-    useMemo(
-      () =>
-        documents.filter(
-          (document) =>
-            document.status ===
-            "failed"
-        ),
-      [documents]
-    );
-
+  const failedDocuments = useMemo(
+    () => documents.filter((document) => document.status === "failed"),
+    [documents],
+  );
 
   /* ===================================================
      SELECT DOCUMENT
   =================================================== */
 
-  function selectDocument(
-    document,
-    targetView = VIEWS.ASSISTANT
-  ) {
+  function selectDocument(document, targetView = VIEWS.ASSISTANT) {
     if (!document) {
       return;
     }
 
-    const fileId =
-      document.file_id ||
-      document._id;
+    const fileId = document.file_id || document._id;
 
     setActiveDocument({
       ...document,
@@ -224,74 +175,49 @@ export default function App() {
     setWorkflow(null);
     setPageError("");
 
-    setActiveView(
-      targetView
-    );
+    setActiveView(targetView);
   }
-
 
   /* ===================================================
      UPLOAD COMPLETE
   =================================================== */
 
-  function handleUploaded(
-    uploaded
-  ) {
+  function handleUploaded(uploaded) {
     if (!uploaded?.file_id) {
       return;
     }
 
     const document = {
-      file_id:
-        uploaded.file_id,
-      _id:
-        uploaded.file_id,
-      filename:
-        uploaded.filename ||
-        "Uploaded document",
-      status:
-        uploaded.status ||
-        "completed",
+      file_id: uploaded.file_id,
+      _id: uploaded.file_id,
+      filename: uploaded.filename || "Uploaded document",
+      status: uploaded.status || "completed",
     };
 
-    setDocuments(
-      (previous) => [
-        document,
-        ...previous.filter(
-          (item) =>
-            (item.file_id ||
-              item._id) !==
-            uploaded.file_id
-        ),
-      ]
-    );
+    setDocuments((previous) => [
+      document,
+      ...previous.filter(
+        (item) => (item.file_id || item._id) !== uploaded.file_id,
+      ),
+    ]);
 
-    setActiveDocument(
-      document
-    );
+    setActiveDocument(document);
 
     setAnalysis(null);
     setWorkflow(null);
     setPageError("");
 
-    setActiveView(
-      VIEWS.ASSISTANT
-    );
+    setActiveView(VIEWS.ASSISTANT);
 
-    setRefreshKey(
-      (value) => value + 1
-    );
+    setRefreshKey((value) => value + 1);
   }
-
 
   /* ===================================================
      ANALYZE DOCUMENT
   =================================================== */
 
   async function handleAnalyzeDocument() {
-    if (
-      !activeDocument?.file_id
-    ) {
+    if (!activeDocument?.file_id) {
       return;
     }
 
@@ -299,1601 +225,776 @@ export default function App() {
       setAnalyzing(true);
       setPageError("");
 
-      const result =
-        await analyzeDocument(
-          activeDocument.file_id,
-          "contract"
-        );
+      const result = await analyzeDocument(activeDocument.file_id, "contract");
 
-      setAnalysis(
-        result?.analysis ||
-          result
-      );
+      setAnalysis(result?.analysis || result);
 
-      setActiveView(
-        VIEWS.INTELLIGENCE
-      );
-
+      setActiveView(VIEWS.INTELLIGENCE);
     } catch (error) {
       setPageError(
         error?.response?.data?.detail ||
           error?.message ||
-          "Unable to analyze this document."
+          "Unable to analyze this document.",
       );
     } finally {
       setAnalyzing(false);
     }
   }
 
-
   /* ===================================================
      GENERATE WORKFLOW
   =================================================== */
 
   async function handleGenerateWorkflow() {
-    if (
-      !activeDocument?.file_id
-    ) {
+    if (!activeDocument?.file_id) {
       return;
     }
 
     try {
-      setGeneratingWorkflow(
-        true
-      );
+      setGeneratingWorkflow(true);
 
       setPageError("");
 
-      const result =
-        await generateWorkflow(
-          activeDocument.file_id,
-          "Review this document and identify the most important actions, risks, missing information, deadlines, and approvals required before action is taken."
-        );
-
-      setWorkflow(
-        result?.workflow ||
-          result
+      const result = await generateWorkflow(
+        activeDocument.file_id,
+        "Review this document and identify the most important actions, risks, missing information, deadlines, and approvals required before action is taken.",
       );
 
-      setActiveView(
-        VIEWS.WORKFLOW
-      );
+      setWorkflow(result?.workflow || result);
 
+      setActiveView(VIEWS.WORKFLOW);
     } catch (error) {
       setPageError(
         error?.response?.data?.detail ||
           error?.message ||
-          "Unable to generate the action plan."
+          "Unable to generate the action plan.",
       );
     } finally {
-      setGeneratingWorkflow(
-        false
-      );
+      setGeneratingWorkflow(false);
     }
   }
-
 
   /* ===================================================
      REFRESH DOCUMENT
   =================================================== */
 
   async function refreshActiveDocument() {
-    if (
-      !activeDocument?.file_id
-    ) {
+    if (!activeDocument?.file_id) {
       return;
     }
 
     try {
-      const result =
-        await getDocumentStatus(
-          activeDocument.file_id
-        );
+      const result = await getDocumentStatus(activeDocument.file_id);
 
       const updated = {
         ...activeDocument,
-        status:
-          result.status,
+        status: result.status,
       };
 
-      setActiveDocument(
-        updated
-      );
+      setActiveDocument(updated);
 
-      setDocuments(
-        (previous) =>
-          previous.map(
-            (document) =>
-              (
-                document.file_id ||
-                document._id
-              ) ===
-              activeDocument.file_id
-                ? {
-                    ...document,
-                    status:
-                      result.status,
-                  }
-                : document
-          )
+      setDocuments((previous) =>
+        previous.map((document) =>
+          (document.file_id || document._id) === activeDocument.file_id
+            ? {
+                ...document,
+                status: result.status,
+              }
+            : document,
+        ),
       );
-
     } catch (error) {
-      setPageError(error?.response?.data?.detail || "Unable to refresh document status.");
+      setPageError(
+        error?.response?.data?.detail || "Unable to refresh document status.",
+      );
     }
   }
-
 
   /* ===================================================
      NAVIGATION
   =================================================== */
 
-  function navigate(
-    view
-  ) {
+  function navigate(view) {
     setPageError("");
 
     if (
-      view ===
-        VIEWS.INTELLIGENCE ||
-      view ===
-        VIEWS.WORKFLOW ||
-      view ===
-        VIEWS.ASSISTANT
+      view === VIEWS.INTELLIGENCE ||
+      view === VIEWS.WORKFLOW ||
+      view === VIEWS.ASSISTANT
     ) {
-      if (
-        !activeDocument
-      ) {
-        setActiveView(
-          VIEWS.DOCUMENTS
-        );
+      if (!activeDocument) {
+        setActiveView(VIEWS.DOCUMENTS);
         return;
       }
     }
 
     if (view === VIEWS.DOCUMENTS) {
-      setRefreshKey(value => value + 1);
+      setRefreshKey((value) => value + 1);
     }
     setActiveView(view);
   }
 
-
-  /* ===================================================
-     RENDER
-  =================================================== */
-
+  const navigation = [
+    { view: VIEWS.DASHBOARD, label: "Dashboard", icon: LayoutDashboard },
+    { view: VIEWS.DOCUMENTS, label: "Documents", icon: FileText },
+    { view: VIEWS.COLLECTIONS, label: "Collections", icon: FolderOpen },
+    {
+      view: VIEWS.ASSISTANT,
+      label: "AI Assistant",
+      mobile: "Assistant",
+      icon: Bot,
+      needsDocument: true,
+    },
+    {
+      view: VIEWS.INTELLIGENCE,
+      label: "Intelligence",
+      icon: Sparkles,
+      needsDocument: true,
+    },
+    {
+      view: VIEWS.WORKFLOW,
+      label: "Action Workflow",
+      mobile: "Workflow",
+      icon: Workflow,
+      needsDocument: true,
+    },
+  ];
+  const nav = (mobile) =>
+    navigation.map(
+      ({ view, label, mobile: mobileLabel, icon: Icon, needsDocument }) => (
+        <button
+          key={view}
+          className="nav-item"
+          aria-current={activeView === view ? "page" : undefined}
+          title={
+            needsDocument && !activeDocument
+              ? "Open a document first"
+              : undefined
+          }
+          disabled={needsDocument && !activeDocument}
+          onClick={() => navigate(view)}
+        >
+          <Icon size={18} aria-hidden="true" />
+          <span>{mobile ? mobileLabel || label : label}</span>
+        </button>
+      ),
+    );
   return (
-    <div className="min-h-screen bg-[#fafafa] text-zinc-900">
-
-      {/* =================================================
-          SIDEBAR
-      ================================================= */}
-
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-zinc-200 bg-white lg:block">
-
-        <div className="flex h-full flex-col">
-
-          {/* Brand */}
-
-          <div className="flex h-20 items-center border-b border-zinc-100 px-6">
-
-            <div className="flex items-center gap-3">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-white">
-                <BrainCircuit
-                  size={20}
-                />
-              </div>
-
-              <div>
-
-                <p className="text-sm font-bold tracking-tight">
-                  DocuMind
-                </p>
-
-                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
-                  Pranjul's AI
-                </p>
-
-              </div>
-
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <aside className="app-sidebar" aria-label="Workspace sidebar">
+        <div className="app-brand">
+          <div className="brand-mark">
+            <BrainCircuit size={23} aria-hidden="true" />
+          </div>
+          <div>
+            <div className="brand-name">
+              DocuMind<span className="text-accent">.</span>
             </div>
-
+            <p className="text-xs text-secondary">Document intelligence</p>
           </div>
-
-
-          {/* Navigation */}
-
-          <nav className="flex-1 space-y-1 p-4">
-            <NavItem icon={<FolderOpen size={17} />} label="Collections" active={activeView === VIEWS.COLLECTIONS} onClick={() => navigate(VIEWS.COLLECTIONS)} />
-
-            <NavItem
-              icon={
-                <LayoutDashboard
-                  size={17}
-                />
-              }
-              label="Dashboard"
-              active={
-                activeView ===
-                VIEWS.DASHBOARD
-              }
-              onClick={() =>
-                navigate(
-                  VIEWS.DASHBOARD
-                )
-              }
-            />
-
-            <NavItem
-              icon={
-                <FolderOpen
-                  size={17}
-                />
-              }
-              label="Documents"
-              active={
-                activeView ===
-                VIEWS.DOCUMENTS
-              }
-              onClick={() =>
-                navigate(
-                  VIEWS.DOCUMENTS
-                )
-              }
-            />
-
-            <NavItem
-              icon={
-                <Sparkles
-                  size={17}
-                />
-              }
-              label="Intelligence"
-              active={
-                activeView ===
-                VIEWS.INTELLIGENCE
-              }
-              onClick={() =>
-                navigate(
-                  VIEWS.INTELLIGENCE
-                )
-              }
-              disabled={
-                !activeDocument
-              }
-            />
-
-            <NavItem
-              icon={
-                <Workflow
-                  size={17}
-                />
-              }
-              label="Action Workflow"
-              active={
-                activeView ===
-                VIEWS.WORKFLOW
-              }
-              onClick={() =>
-                navigate(
-                  VIEWS.WORKFLOW
-                )
-              }
-              disabled={
-                !activeDocument
-              }
-            />
-
-            <NavItem
-              icon={
-                <Bot size={17} />
-              }
-              label="AI Assistant"
-              active={
-                activeView ===
-                VIEWS.ASSISTANT
-              }
-              onClick={() =>
-                navigate(
-                  VIEWS.ASSISTANT
-                )
-              }
-              disabled={
-                !activeDocument
-              }
-            />
-
-          </nav>
-
-
-          {/* Active document */}
-
-          <div className="border-t border-zinc-100 p-4">
-
-            <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Active document
-            </p>
-
-            {activeDocument ? (
-              <button
-                onClick={() =>
-                  navigate(
-                    VIEWS.DOCUMENTS
-                  )
-                }
-                className="mt-2 flex w-full items-center gap-3 rounded-xl bg-zinc-50 p-3 text-left hover:bg-zinc-100"
-              >
-
-                <FileText
-                  size={16}
-                  className="shrink-0 text-zinc-500"
-                />
-
-                <div className="min-w-0">
-
-                  <p className="truncate text-xs font-medium text-zinc-800">
-                    {
-                      activeDocument.filename
-                    }
-                  </p>
-
-                  <p className="mt-0.5 text-[10px] text-zinc-400">
-                    {
-                      activeDocument.status ||
-                      "unknown"
-                    }
-                  </p>
-
-                </div>
-
-              </button>
-            ) : (
-              <p className="px-2 pt-2 text-xs text-zinc-400">
-                No document selected
-              </p>
-            )}
-
-          </div>
-
         </div>
-
-      </aside>
-
-
-      {/* =================================================
-          MAIN
-      ================================================= */}
-
-      <main className="lg:pl-64">
-
-        {/* Header */}
-
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-zinc-200 bg-white/90 px-5 backdrop-blur lg:px-8">
-
-          <div className="min-w-0">
-
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Workspace
-            </p>
-
-            <h1 className="truncate text-sm font-semibold text-zinc-900">
-              {pageTitle(
-                activeView
-              )}
-            </h1>
-
-          </div>
-
-
-          <div className="flex items-center gap-2">
-
-            {activeDocument && (
-              <div className="hidden max-w-[260px] items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 sm:flex">
-
-                <FileText
-                  size={13}
-                  className="shrink-0 text-zinc-400"
-                />
-
-                <span className="truncate text-xs text-zinc-500">
-                  {
-                    activeDocument.filename
-                  }
-                </span>
-
-              </div>
-            )}
-
+        <p className="sidebar-section">Workspace</p>
+        <nav className="app-nav" aria-label="Main navigation">
+          {nav(false)}
+        </nav>
+        <div className="mx-6 mt-8 rounded-lg border border-line bg-surface p-4">
+          <ShieldAlert size={18} className="mb-3 text-secondary" />
+          <p className="text-sm font-medium">Evidence comes first</p>
+          <p className="mt-2 text-xs leading-5 text-secondary">
+            Trace answers to the original. Review limitations before taking
+            action.
+          </p>
+        </div>
+        <div className="sidebar-footer">
+          <p className="text-xs text-secondary mb-3">Current document</p>
+          {activeDocument ? (
             <button
-              onClick={() =>
-                setRefreshKey(
-                  (value) =>
-                    value + 1
-                )
-              }
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
-              title="Refresh"
+              className="w-full text-left"
+              onClick={() => navigate(VIEWS.ASSISTANT)}
             >
-              <RefreshCw
-                size={15}
-              />
-            </button>
-
-          </div>
-
-        </header>
-
-
-        {/* Mobile navigation */}
-
-        <div className="flex gap-1 overflow-x-auto border-b border-zinc-200 bg-white px-4 py-2 lg:hidden">
-          <MobileNavItem label="Collections" active={activeView === VIEWS.COLLECTIONS} onClick={() => navigate(VIEWS.COLLECTIONS)} />
-
-          <MobileNavItem
-            label="Dashboard"
-            active={
-              activeView ===
-              VIEWS.DASHBOARD
-            }
-            onClick={() =>
-              navigate(
-                VIEWS.DASHBOARD
-              )
-            }
-          />
-
-          <MobileNavItem
-            label="Documents"
-            active={
-              activeView ===
-              VIEWS.DOCUMENTS
-            }
-            onClick={() =>
-              navigate(
-                VIEWS.DOCUMENTS
-              )
-            }
-          />
-
-          <MobileNavItem
-            label="Intelligence"
-            active={
-              activeView ===
-              VIEWS.INTELLIGENCE
-            }
-            onClick={() =>
-              navigate(
-                VIEWS.INTELLIGENCE
-              )
-            }
-            disabled={
-              !activeDocument
-            }
-          />
-
-          <MobileNavItem
-            label="Workflow"
-            active={
-              activeView ===
-              VIEWS.WORKFLOW
-            }
-            onClick={() =>
-              navigate(
-                VIEWS.WORKFLOW
-              )
-            }
-            disabled={
-              !activeDocument
-            }
-          />
-
-          <MobileNavItem
-            label="Assistant"
-            active={
-              activeView ===
-              VIEWS.ASSISTANT
-            }
-            onClick={() =>
-              navigate(
-                VIEWS.ASSISTANT
-              )
-            }
-            disabled={
-              !activeDocument
-            }
-          />
-
-        </div>
-
-
-        {/* Page */}
-
-        <div className="mx-auto max-w-[1500px] p-5 lg:p-8">
-
-          {/* Global error */}
-
-          {pageError && (
-            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-
-              <ShieldAlert
-                size={17}
-                className="mt-0.5 shrink-0 text-red-600"
-              />
-
-              <div className="min-w-0">
-
-                <p className="text-sm font-semibold text-red-800">
-                  Something went wrong
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-red-700">
-                  {pageError}
-                </p>
-
+              <p
+                className="line-clamp-2 text-sm font-medium"
+                title={activeDocument.filename}
+              >
+                {activeDocument.filename}
+              </p>
+              <div className="mt-2">
+                <DocumentStatus status={activeDocument.status} />
               </div>
-
+            </button>
+          ) : (
+            <p className="text-sm text-secondary">Open a document to begin</p>
+          )}
+          <Button
+            variant="ghost"
+            className="mt-5 w-full justify-start"
+            onClick={() => setWorkspaceInfo(true)}
+          >
+            <HelpCircle size={16} />
+            Workspace details
+          </Button>
+        </div>
+      </aside>
+      <main className="app-main">
+        <header className="app-header">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="brand-mark lg:hidden">
+              <BrainCircuit size={20} />
+            </span>
+            <div>
+              <p className="text-xs text-secondary">
+                Workspace <span className="mx-1">/</span>{" "}
+                <span className="text-primary">{pageTitle(activeView)}</span>
+              </p>
+              <h1 className="text-base font-medium mt-1">
+                Document intelligence platform
+              </h1>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden sm:inline-flex ui-badge">
+              Current workspace
+            </span>
+            <Button
+              aria-label="Refresh"
+              title="Refresh documents"
+              onClick={() => setRefreshKey((value) => value + 1)}
+              className="px-2"
+            >
+              <RefreshCw size={17} />
+            </Button>
+            <ThemeToggle />
+          </div>
+        </header>
+        <nav className="mobile-nav" aria-label="Mobile navigation">
+          {nav(true)}
+        </nav>
+        <div id="main-content" tabIndex={-1} className="app-content">
+          {pageError && (
+            <div className="mb-6">
+              <StatusMessage tone="error" title="Action could not be completed">
+                {pageError}
+              </StatusMessage>
             </div>
           )}
-
-
-          {activeView === VIEWS.COLLECTIONS && <CollectionsWorkspace />}
-
-          {/* =================================================
-              DASHBOARD
-          ================================================= */}
-
-          {activeView ===
-            VIEWS.DASHBOARD && (
+          {activeView === VIEWS.DASHBOARD && (
             <DashboardView
-              documents={
-                documents
-              }
-              completedDocuments={
-                completedDocuments
-              }
-              processingDocuments={
-                processingDocuments
-              }
-              failedDocuments={
-                failedDocuments
-              }
-              loading={
-                loadingDocuments
-              }
-              onOpenDocuments={() =>
-                navigate(
-                  VIEWS.DOCUMENTS
-                )
-              }
-              onSelectDocument={
-                selectDocument
-              }
+              documents={documents}
+              completedDocuments={completedDocuments}
+              processingDocuments={processingDocuments}
+              failedDocuments={failedDocuments}
+              loading={loadingDocuments}
+              error={documentsError}
+              onRetry={() => setRefreshKey((value) => value + 1)}
+              onOpenDocuments={() => navigate(VIEWS.DOCUMENTS)}
+              onOpenCollections={() => navigate(VIEWS.COLLECTIONS)}
+              onSelectDocument={selectDocument}
             />
           )}
-
-
-          {/* =================================================
-              DOCUMENTS
-          ================================================= */}
-
-          {activeView ===
-            VIEWS.DOCUMENTS && (
+          {activeView === VIEWS.DOCUMENTS && (
             <DocumentsView
               onUploaded={handleUploaded}
-              documents={
-                documents
-              }
-              loading={
-                loadingDocuments
-              }
-              activeDocument={
-                activeDocument
-              }
-              onSelectDocument={
-                selectDocument
-              }
-              onRefresh={() =>
-                setRefreshKey(
-                  (value) =>
-                    value + 1
-                )
-              }
+              documents={documents}
+              loading={loadingDocuments}
+              error={documentsError}
+              activeDocument={activeDocument}
+              onSelectDocument={selectDocument}
+              onRefresh={() => setRefreshKey((value) => value + 1)}
             />
           )}
-
-
-          {/* =================================================
-              INTELLIGENCE
-          ================================================= */}
-
-          {activeView ===
-            VIEWS.INTELLIGENCE && (
+          {activeView === VIEWS.COLLECTIONS && <CollectionsWorkspace />}
+          {activeView === VIEWS.INTELLIGENCE && (
             <section className="space-y-6">
-
               {!activeDocument ? (
                 <EmptyState
-                  icon={
-                    <FileText
-                      size={23}
-                    />
-                  }
-                  title="No document selected"
-                  description="Select a processed document before opening Document Intelligence."
-                  actionLabel="Open documents"
-                  onAction={() =>
-                    navigate(
-                      VIEWS.DOCUMENTS
-                    )
-                  }
+                  title="Choose a document"
+                  description="Open a document from your library to see its intelligence."
+                  onAction={() => navigate(VIEWS.DOCUMENTS)}
                 />
-              ) : activeDocument.status !==
-                "completed" ? (
-                <div className="space-y-6">
-
+              ) : activeDocument.status !== "completed" ? (
+                <>
                   <ProcessingPipeline
-                    status={
-                      activeDocument.status
-                    }
-                    filename={
-                      activeDocument.filename
-                    }
+                    status={activeDocument.status}
+                    filename={activeDocument.filename}
                   />
-
-                  <div className="flex justify-center">
-
-                    <button
-                      onClick={
-                        refreshActiveDocument
-                      }
-                      className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-                    >
-                      <RefreshCw
-                        size={15}
-                      />
-                      Check status
-                    </button>
-
-                  </div>
-
-                </div>
+                  <Button onClick={refreshActiveDocument}>
+                    <RefreshCw size={16} />
+                    Check status
+                  </Button>
+                </>
               ) : !analysis ? (
                 <IntelligenceStart
-                  document={
-                    activeDocument
-                  }
-                  analyzing={
-                    analyzing
-                  }
-                  onAnalyze={
-                    handleAnalyzeDocument
-                  }
+                  document={activeDocument}
+                  analyzing={analyzing}
+                  onAnalyze={handleAnalyzeDocument}
                 />
               ) : (
                 <DocumentIntelligence
-                  analysis={
-                    analysis
-                  }
-                  onGenerateWorkflow={
-                    handleGenerateWorkflow
-                  }
-                  generatingWorkflow={
-                    generatingWorkflow
-                  }
+                  analysis={analysis}
+                  onGenerateWorkflow={handleGenerateWorkflow}
+                  generatingWorkflow={generatingWorkflow}
                 />
               )}
-
             </section>
           )}
-
-
-          {/* =================================================
-              WORKFLOW
-          ================================================= */}
-
-          {activeView ===
-            VIEWS.WORKFLOW && (
+          {activeView === VIEWS.WORKFLOW && (
             <section className="space-y-6">
-
               {!activeDocument ? (
                 <EmptyState
-                  icon={
-                    <Workflow
-                      size={23}
-                    />
-                  }
-                  title="No document selected"
-                  description="Select a processed document before generating an action workflow."
-                  actionLabel="Open documents"
-                  onAction={() =>
-                    navigate(
-                      VIEWS.DOCUMENTS
-                    )
-                  }
+                  title="Choose a document"
+                  description="Open a document before generating its action workflow."
+                  onAction={() => navigate(VIEWS.DOCUMENTS)}
                 />
               ) : !workflow ? (
                 <WorkflowStart
-                  document={
-                    activeDocument
-                  }
-                  generating={
-                    generatingWorkflow
-                  }
-                  onGenerate={
-                    handleGenerateWorkflow
-                  }
+                  document={activeDocument}
+                  generating={generatingWorkflow}
+                  onGenerate={handleGenerateWorkflow}
                 />
               ) : (
-                <WorkflowPanel
-                  workflow={
-                    workflow
-                  }
-                />
+                <WorkflowPanel workflow={workflow} />
               )}
-
             </section>
           )}
-
-
-          {/* =================================================
-              ASSISTANT
-          ================================================= */}
-
-          {activeView ===
-            VIEWS.ASSISTANT && (
-            <section>
-
-              {!activeDocument ? (
-                <EmptyState
-                  icon={
-                    <Bot size={23} />
-                  }
-                  title="No document selected"
-                  description="Select a processed document before using the AI Assistant."
-                  actionLabel="Open documents"
-                  onAction={() =>
-                    navigate(
-                      VIEWS.DOCUMENTS
-                    )
-                  }
-                />
-              ) : (
-                <DocumentWorkspace key={activeDocument.file_id} document={activeDocument}
-                  session={readingSessions[activeDocument.file_id] || {}}
-                  onSessionChange={updater => setReadingSessions(previous => ({ ...previous,
-                    [activeDocument.file_id]: updater(previous[activeDocument.file_id] || {}) }))} />
-              )}
-
-            </section>
-          )}
-
+          {activeView === VIEWS.ASSISTANT &&
+            (activeDocument ? (
+              <DocumentWorkspace
+                key={activeDocument.file_id}
+                document={activeDocument}
+                session={readingSessions[activeDocument.file_id] || {}}
+                onSessionChange={(updater) =>
+                  setReadingSessions((previous) => ({
+                    ...previous,
+                    [activeDocument.file_id]: updater(
+                      previous[activeDocument.file_id] || {},
+                    ),
+                  }))
+                }
+              />
+            ) : (
+              <EmptyState
+                title="Choose a document"
+                description="Open a PDF to read, ask questions, and inspect evidence."
+                onAction={() => navigate(VIEWS.DOCUMENTS)}
+              />
+            ))}
         </div>
-
       </main>
-
+      <Dialog
+        open={workspaceInfo}
+        title="Your local workspace"
+        onClose={() => setWorkspaceInfo(false)}
+      >
+        <p className="text-secondary">
+          Documents and results are scoped to your authenticated workspace. This
+          interface does not change document access or ownership.
+        </p>
+        <p className="mt-4 text-sm">
+          Development access is local only. Evidence may be incomplete; check
+          source versions and original passages before relying on answers.
+        </p>
+        <Button className="mt-6" onClick={() => setWorkspaceInfo(false)}>
+          Done
+        </Button>
+      </Dialog>
     </div>
   );
 }
 
-
-/* =====================================================
-   DASHBOARD
-===================================================== */
-
+function DocumentStatus({ status = "unknown" }) {
+  const tone =
+    status === "completed"
+      ? "success"
+      : status === "failed"
+        ? "error"
+        : status === "unknown"
+          ? "neutral"
+          : "warning";
+  return (
+    <Badge tone={tone}>
+      {status === "completed" ? "Ready" : status.replaceAll("_", " ")}
+    </Badge>
+  );
+}
+function LibraryError({ error, onRetry, retained }) {
+  return (
+    <StatusMessage
+      tone="error"
+      title="Document library unavailable"
+      action={
+        <Button onClick={onRetry}>
+          <RefreshCw size={15} />
+          Retry loading documents
+        </Button>
+      }
+    >
+      <p>{error}</p>
+      <p className="mt-2">
+        {retained
+          ? "Previously loaded documents are shown below. Counts may be out of date."
+          : "Document counts are unavailable. This does not mean your workspace is empty."}
+      </p>
+    </StatusMessage>
+  );
+}
 function DashboardView({
   documents,
   completedDocuments,
   processingDocuments,
   failedDocuments,
   loading,
+  error,
+  onRetry,
   onOpenDocuments,
+  onOpenCollections,
   onSelectDocument,
 }) {
-  const recent =
-    documents.slice(
-      0,
-      5
-    );
-
+  const metrics = [
+    ["Total documents", documents.length, FileText],
+    ["Ready for AI", completedDocuments.length, CheckCircle2],
+    ["Processing", processingDocuments.length, Activity],
+    ["Needs attention", failedDocuments.length, ShieldAlert],
+  ];
   return (
-    <div className="space-y-8">
-
-      <div>
-
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          Overview
-        </p>
-
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900">
-          Document intelligence workspace
-        </h2>
-
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-          Upload business documents, extract structured intelligence, identify risks, generate workflows, and ask grounded questions.
-        </p>
-
-      </div>
-
-
-      {/* Metrics */}
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-        <MetricCard
-          icon={
-            <FileText
-              size={18}
-            />
-          }
-          label="Total documents"
-          value={
-            documents.length
-          }
-        />
-
-        <MetricCard
-          icon={
-            <Sparkles
-              size={18}
-            />
-          }
-          label="Ready for AI"
-          value={
-            completedDocuments.length
-          }
-        />
-
-        <MetricCard
-          icon={
-            <Activity
-              size={18}
-            />
-          }
-          label="Processing"
-          value={
-            processingDocuments.length
-          }
-        />
-
-        <MetricCard
-          icon={
-            <ShieldAlert
-              size={18}
-            />
-          }
-          label="Failed"
-          value={
-            failedDocuments.length
-          }
-        />
-
-      </div>
-
-
-      {/* Quick start */}
-
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-
-          <div className="flex items-start justify-between">
-
-            <div>
-
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                Quick start
-              </p>
-
-              <h3 className="mt-1 text-lg font-semibold">
-                Analyze a new document
-              </h3>
-
-              <p className="mt-2 max-w-lg text-sm leading-6 text-zinc-500">
-                Start with a contract, policy, report, or other business document.
-              </p>
-
-            </div>
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100">
-              <Upload
-                size={18}
-              />
-            </div>
-
-          </div>
-
-          <button
-            onClick={
-              onOpenDocuments
-            }
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-700"
-          >
-            Upload document
-            <ChevronRight
-              size={15}
-            />
-          </button>
-
-        </div>
-
-
-        <div className="rounded-3xl border border-zinc-200 bg-zinc-900 p-6 text-white">
-
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-            <Bot size={18} />
-          </div>
-
-          <h3 className="mt-5 text-lg font-semibold">
-            Grounded AI Assistant
-          </h3>
-
-          <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Ask questions about an uploaded document and receive answers backed by retrieved document sources.
+    <div className="space-y-7">
+      <div className="page-intro">
+        <div>
+          <p className="eyebrow">Your document workspace</p>
+          <h2>Clarity starts with evidence.</h2>
+          <p className="mt-3 text-secondary max-w-xl">
+            Turn documents into answers, grounded insights, and clear next
+            steps.
           </p>
-
         </div>
-
+        <Button variant="primary" onClick={onOpenDocuments}>
+          <Upload size={17} />
+          Upload document
+        </Button>
       </div>
-
-
-      {/* Recent documents */}
-
-      <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-
-        <div className="flex items-center justify-between">
-
-          <div>
-
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-              Recent
-            </p>
-
-            <h3 className="mt-1 text-lg font-semibold">
-              Recent documents
-            </h3>
-
-          </div>
-
-          <button
-            onClick={
-              onOpenDocuments
-            }
-            className="text-xs font-semibold text-zinc-500 hover:text-zinc-900"
-          >
-            View all
-          </button>
-
-        </div>
-
-        <div className="mt-5">
-
-          {loading ? (
-            <LoadingRow />
-          ) : recent.length ===
-            0 ? (
-            <EmptyText>
-              No documents have been uploaded yet.
-            </EmptyText>
-          ) : (
-            <div className="divide-y divide-zinc-100">
-
-              {recent.map(
-                (document) => (
-                  <DocumentRow
-                    key={
-                      document.file_id ||
-                      document._id
-                    }
-                    document={
-                      document
-                    }
-                    onClick={() =>
-                      onSelectDocument(
-                        document
-                      )
-                    }
-                  />
-                )
-              )}
-
+      {error && (
+        <LibraryError
+          error={error}
+          onRetry={onRetry}
+          retained={documents.length > 0}
+        />
+      )}
+      <div className="metric-grid" aria-label="Document metrics">
+        {metrics.map(([label, value, Icon]) => (
+          <Card className="metric" key={label}>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-secondary text-xs">{label}</p>
+              <Icon size={16} className="text-secondary" aria-hidden="true" />
             </div>
-          )}
-
-        </div>
-
+            <p
+              className="metric-value"
+              aria-label={`${label}: ${loading ? "loading" : error ? "unavailable" : value}`}
+            >
+              {loading || error ? "—" : value}
+            </p>
+            <p className="mt-2 text-xs text-secondary">
+              {loading
+                ? "Loading workspace"
+                : error
+                  ? "Awaiting verified counts"
+                  : label === "Ready for AI"
+                    ? "Processing complete"
+                    : label === "Needs attention"
+                      ? "Failed processing"
+                      : label === "Processing"
+                        ? "Queued or in progress"
+                        : "In this workspace"}
+            </p>
+          </Card>
+        ))}
       </div>
-
+      <div className="dashboard-grid">
+        <Card>
+          <ListHeader
+            title="Recent documents"
+            description="Pick up where you left off."
+            action={
+              <Button variant="ghost" onClick={onOpenDocuments}>
+                View all
+                <ArrowUpRight size={16} />
+              </Button>
+            }
+          />
+          {loading ? (
+            <Skeleton label="Loading documents" />
+          ) : !documents.length ? (
+            error ? (
+              <p className="p-6 text-secondary">
+                Your library could not be loaded. Retry above to see your
+                documents.
+              </p>
+            ) : (
+              <EmptyState
+                embedded
+                title="Your workspace is ready"
+                description="Upload your first PDF to start exploring its evidence."
+                onAction={onOpenDocuments}
+              />
+            )
+          ) : (
+            documents
+              .slice(0, 5)
+              .map((doc) => (
+                <DocumentRow
+                  key={doc._id || doc.file_id}
+                  document={doc}
+                  onClick={() => onSelectDocument(doc)}
+                />
+              ))
+          )}
+        </Card>
+        <div className="space-y-5">
+          <Card className="p-5">
+            <h3>Make your next move</h3>
+            <button className="quick-action" onClick={onOpenDocuments}>
+              <Upload size={18} className="text-secondary" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Upload a PDF</p>
+                <p className="text-xs text-secondary mt-1">
+                  Add evidence to your workspace
+                </p>
+              </div>
+              <ChevronRight size={16} />
+            </button>
+            <button className="quick-action" onClick={onOpenCollections}>
+              <FolderOpen size={18} className="text-secondary" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Explore collections</p>
+                <p className="text-xs text-secondary mt-1">
+                  Ask and compare across documents
+                </p>
+              </div>
+              <ChevronRight size={16} />
+            </button>
+          </Card>
+          <div className="workspace-note">
+            <div className="flex items-center gap-2">
+              <Bot size={17} className="text-accent" />
+              <h3 className="text-sm">Answers with a source</h3>
+            </div>
+            <p className="mt-3 text-sm text-secondary">
+              Open a document to ask questions, follow citations, and read the
+              exact passage in context.
+            </p>
+            <p className="mt-3 text-xs text-secondary">
+              Always review source quality and limitations.
+            </p>
+          </div>
+        </div>
+      </div>
+      <p className="text-xs text-secondary flex gap-2 items-center">
+        <ShieldAlert size={14} />
+        Only documents in your current workspace are shown.
+      </p>
     </div>
   );
 }
-
-
-/* =====================================================
-   DOCUMENTS VIEW
-===================================================== */
-
 function DocumentsView({
   documents,
   loading,
+  error,
   activeDocument,
   onSelectDocument,
   onRefresh,
   onUploaded,
 }) {
   return (
-    <div className="space-y-7">
-
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-
+    <div className="space-y-6">
+      <div className="page-intro">
         <div>
-
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            Library
+          <p className="eyebrow">Document library</p>
+          <h2>Your source of truth.</h2>
+          <p className="mt-3 text-secondary">
+            Upload, organize, and open your original documents.
           </p>
-
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-            Documents
-          </h2>
-
-          <p className="mt-2 text-sm text-zinc-500">
-            Upload and select documents to work with.
-          </p>
-
         </div>
-
-        <button
-          onClick={
-            onRefresh
-          }
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-        >
-          <RefreshCw
-            size={15}
-          />
+        <Button onClick={onRefresh}>
+          <RefreshCw size={16} />
           Refresh
-        </button>
-
+        </Button>
       </div>
-
-
-      {/* Upload */}
-
-      <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-
-        <UploadDocument
-          onUploaded={
-            onUploaded
+      <Card className="p-5 sm:p-6">
+        <UploadDocument onUploaded={onUploaded} />
+      </Card>
+      {error && (
+        <LibraryError
+          error={error}
+          onRetry={onRefresh}
+          retained={documents.length > 0}
+        />
+      )}
+      <Card>
+        <ListHeader
+          title="Uploaded documents"
+          description={
+            loading
+              ? "Loading your library…"
+              : error
+                ? "Library status unavailable"
+                : `${documents.length} document${documents.length === 1 ? "" : "s"} in this workspace`
           }
         />
-
-      </div>
-
-
-      {/* History */}
-
-      <div className="rounded-3xl border border-zinc-200 bg-white shadow-sm">
-
-        <div className="border-b border-zinc-100 p-6">
-
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            History
-          </p>
-
-          <h3 className="mt-1 text-lg font-semibold">
-            Uploaded documents
-          </h3>
-
-        </div>
-
         {loading ? (
-          <div className="p-6">
-            <LoadingRow />
-          </div>
-        ) : documents.length ===
-          0 ? (
-          <div className="p-6">
-            <EmptyText>
-              No documents found.
-            </EmptyText>
-          </div>
+          <Skeleton label="Loading documents" />
+        ) : !documents.length ? (
+          error ? (
+            <p className="p-6 text-secondary">
+              Documents could not be loaded. Use Retry loading documents above.
+            </p>
+          ) : (
+            <EmptyState
+              embedded
+              title="No documents yet"
+              description="Upload a PDF above. Your original stays available for reading and source review."
+            />
+          )
         ) : (
-          <div className="divide-y divide-zinc-100">
-
-            {documents.map(
-              (document) => {
-                const id =
-                  document.file_id ||
-                  document._id;
-
-                const isActive =
-                  (
-                    activeDocument?.file_id ||
-                    activeDocument?._id
-                  ) === id;
-
-                return (
-                  <DocumentRow
-                    key={id}
-                    document={
-                      document
-                    }
-                    active={
-                      isActive
-                    }
-                    onClick={() =>
-                      onSelectDocument(
-                        document
-                      )
-                    }
-                  />
-                );
+          documents.map((doc) => (
+            <DocumentRow
+              key={doc._id || doc.file_id}
+              document={doc}
+              active={
+                (activeDocument?.file_id || activeDocument?._id) ===
+                (doc._id || doc.file_id)
               }
-            )}
-
-          </div>
+              onClick={() => onSelectDocument(doc)}
+            />
+          ))
         )}
-
-      </div>
-
+      </Card>
     </div>
   );
 }
-
-
-/* =====================================================
-   INTELLIGENCE START
-===================================================== */
-
-function IntelligenceStart({
-  document,
-  analyzing,
-  onAnalyze,
-}) {
+function DocumentRow({ document, onClick, active }) {
   return (
-    <div className="rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
-
-      <div className="mx-auto max-w-2xl text-center">
-
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-white">
-          <Sparkles
-            size={24}
-          />
-        </div>
-
-        <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          Ready for analysis
+    <button
+      className="document-row"
+      aria-current={active ? "true" : undefined}
+      onClick={onClick}
+    >
+      <span className="file-icon">
+        <FileText size={20} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="document-name block">
+          {document.filename || "Untitled document"}
+        </span>
+        <span className="block text-xs text-secondary mt-1">
+          PDF document
+          {document.total_pages ? ` · ${document.total_pages} pages` : ""}
+        </span>
+        {document.error && (
+          <span className="block text-xs text-danger mt-1">
+            {typeof document.error === "string"
+              ? document.error
+              : "Processing failed. Open document for details."}
+          </span>
+        )}
+      </span>
+      <DocumentStatus status={document.status} />
+      <ChevronRight size={16} className="text-secondary shrink-0" />
+    </button>
+  );
+}
+function EmptyState({ title, description, onAction, embedded }) {
+  return (
+    <div className={`${embedded ? "" : "ui-card"} p-7 sm:p-10 text-center`}>
+      <FileText size={28} className="text-secondary mx-auto mb-4" />
+      <h3>{title}</h3>
+      <p className="text-secondary mt-3 max-w-md mx-auto">{description}</p>
+      {onAction && (
+        <Button variant="primary" onClick={onAction} className="mt-5">
+          Open documents
+          <ChevronRight size={16} />
+        </Button>
+      )}
+    </div>
+  );
+}
+function IntelligenceStart({ document, analyzing, onAnalyze }) {
+  return (
+    <Card className="p-6 sm:p-10">
+      <div className="max-w-2xl">
+        <p className="eyebrow">Document intelligence</p>
+        <BrainCircuit size={28} className="text-accent my-5" />
+        <h2>See the details that matter.</h2>
+        <p className="mt-4 text-secondary">
+          Review executive summaries, parties, obligations, financial terms, and
+          potential risks. Generated findings require human review.
         </p>
-
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-          Understand the document
-        </h2>
-
-        <p className="mt-3 text-sm leading-6 text-zinc-500">
-          The document has completed ingestion, knowledge-base creation, and embedding generation. Run Document Intelligence to extract structured information and risks.
+        <p className="mt-6 rounded-lg border border-line bg-muted p-4 document-name">
+          {document.filename}
         </p>
-
-        <div className="mx-auto mt-6 max-w-md rounded-2xl bg-zinc-50 p-4 text-left">
-
-          <div className="flex items-center gap-3">
-
-            <FileText
-              size={18}
-              className="shrink-0 text-zinc-500"
-            />
-
-            <div className="min-w-0">
-
-              <p className="truncate text-sm font-semibold text-zinc-800">
-                {
-                  document.filename
-                }
-              </p>
-
-              <p className="mt-1 text-xs text-zinc-400">
-                Processing completed
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <button
-          onClick={
-            onAnalyze
-          }
-          disabled={
-            analyzing
-          }
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+        <Button
+          variant="primary"
+          className="mt-6"
+          onClick={onAnalyze}
+          disabled={analyzing}
         >
-
           {analyzing ? (
-            <>
-              <Loader2
-                size={16}
-                className="animate-spin"
-              />
-              Analyzing document...
-            </>
+            <Loader2 size={17} className="animate-spin" />
           ) : (
-            <>
-              <BrainCircuit
-                size={16}
-              />
-              Run Document Intelligence
-            </>
+            <Sparkles size={17} />
           )}
-
-        </button>
-
+          {analyzing ? "Analyzing document…" : "Run Document Intelligence"}
+        </Button>
+        <p className="mt-3 text-xs text-secondary">
+          Runs analysis using your configured model service.
+        </p>
       </div>
-
-    </div>
+    </Card>
   );
 }
-
-
-/* =====================================================
-   WORKFLOW START
-===================================================== */
-
-function WorkflowStart({
-  document,
-  generating,
-  onGenerate,
-}) {
+function WorkflowStart({ document, generating, onGenerate }) {
   return (
-    <div className="rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
-
-      <div className="mx-auto max-w-2xl text-center">
-
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-white">
-          <Workflow
-            size={24}
-          />
-        </div>
-
-        <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          Agent 3
+    <Card className="p-6 sm:p-10">
+      <div className="max-w-2xl">
+        <p className="eyebrow">Action workflow</p>
+        <Workflow size={28} className="text-accent my-5" />
+        <h2>From insight to next steps.</h2>
+        <p className="mt-4 text-secondary">
+          Build a prioritized action plan with deadlines, monitoring tasks, and
+          human approval requirements. Review every recommendation before
+          acting.
         </p>
-
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-          Generate an action workflow
-        </h2>
-
-        <p className="mt-3 text-sm leading-6 text-zinc-500">
-          Workflow Agent consumes the structured document intelligence and turns it into prioritized actions, upcoming tasks, monitoring items, and human-approval requirements.
+        <p className="mt-6 rounded-lg border border-line bg-muted p-4 document-name">
+          {document.filename}
         </p>
-
-        <div className="mt-6 rounded-2xl bg-zinc-50 p-4 text-left">
-
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            Document
-          </p>
-
-          <p className="mt-1 truncate text-sm font-semibold text-zinc-800">
-            {
-              document.filename
-            }
-          </p>
-
-        </div>
-
-        <button
-          onClick={
-            onGenerate
-          }
-          disabled={
-            generating
-          }
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+        <Button
+          variant="primary"
+          className="mt-6"
+          onClick={onGenerate}
+          disabled={generating}
         >
-
           {generating ? (
-            <>
-              <Loader2
-                size={16}
-                className="animate-spin"
-              />
-              Generating action plan...
-            </>
+            <Loader2 size={17} className="animate-spin" />
           ) : (
-            <>
-              <Workflow
-                size={16}
-              />
-              Generate action plan
-            </>
+            <Workflow size={17} />
           )}
-
-        </button>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =====================================================
-   NAV ITEM
-===================================================== */
-
-function NavItem({
-  icon,
-  label,
-  active,
-  onClick,
-  disabled = false,
-}) {
-  return (
-    <button
-      onClick={
-        onClick
-      }
-      disabled={
-        disabled
-      }
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-        active
-          ? "bg-zinc-100 font-semibold text-zinc-900"
-          : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
-      } ${
-        disabled
-          ? "cursor-not-allowed opacity-35"
-          : ""
-      }`}
-    >
-
-      {icon}
-
-      <span>
-        {label}
-      </span>
-
-    </button>
-  );
-}
-
-
-/* =====================================================
-   MOBILE NAV
-===================================================== */
-
-function MobileNavItem({
-  label,
-  active,
-  onClick,
-  disabled = false,
-}) {
-  return (
-    <button
-      onClick={
-        onClick
-      }
-      disabled={
-        disabled
-      }
-      className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium ${
-        active
-          ? "bg-zinc-900 text-white"
-          : "text-zinc-500 hover:bg-zinc-100"
-      } ${
-        disabled
-          ? "cursor-not-allowed opacity-30"
-          : ""
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-
-/* =====================================================
-   DOCUMENT ROW
-===================================================== */
-
-function DocumentRow({
-  document,
-  active = false,
-  onClick,
-}) {
-  const status =
-    String(
-      document.status ||
-        "unknown"
-    ).toLowerCase();
-
-  const statusStyle =
-    status === "completed"
-      ? "bg-emerald-50 text-emerald-700"
-      : status === "failed"
-      ? "bg-red-50 text-red-700"
-      : "bg-zinc-100 text-zinc-600";
-
-  return (
-    <button
-      onClick={
-        onClick
-      }
-      className={`flex w-full items-center gap-4 px-6 py-4 text-left transition hover:bg-zinc-50 ${
-        active
-          ? "bg-zinc-50"
-          : ""
-      }`}
-    >
-
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500">
-        <FileText
-          size={18}
-        />
-      </div>
-
-      <div className="min-w-0 flex-1">
-
-        <p className="truncate text-sm font-semibold text-zinc-800">
-          {
-            document.filename ||
-            "Untitled document"
-          }
+          {generating ? "Generating action plan…" : "Generate action plan"}
+        </Button>
+        <p className="mt-3 text-xs text-secondary">
+          Runs generation using your configured model service.
         </p>
-
-        <p className="mt-1 truncate text-xs text-zinc-400">
-          {
-            document.file_id ||
-            document._id ||
-            "No ID"
-          }
-        </p>
-
       </div>
-
-      <span
-        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyle}`}
-      >
-        {status}
-      </span>
-
-      <ChevronRight
-        size={15}
-        className="shrink-0 text-zinc-300"
-      />
-
-    </button>
+    </Card>
   );
 }
-
-
-/* =====================================================
-   METRIC CARD
-===================================================== */
-
-function MetricCard({
-  icon,
-  label,
-  value,
-}) {
+function pageTitle(view) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600">
-        {icon}
-      </div>
-
-      <p className="mt-4 text-xs font-medium text-zinc-400">
-        {label}
-      </p>
-
-      <p className="mt-1 text-2xl font-semibold tracking-tight">
-        {value}
-      </p>
-
-    </div>
+    {
+      collections: "Collections",
+      documents: "Documents",
+      intelligence: "Document intelligence",
+      workflow: "Action workflow",
+      assistant: "Read & Ask",
+    }[view] || "Dashboard"
   );
-}
-
-
-/* =====================================================
-   EMPTY STATE
-===================================================== */
-
-function EmptyState({
-  icon,
-  title,
-  description,
-  actionLabel,
-  onAction,
-}) {
-  return (
-    <div className="rounded-3xl border border-zinc-200 bg-white p-10 shadow-sm">
-
-      <div className="mx-auto max-w-md text-center">
-
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500">
-          {icon}
-        </div>
-
-        <h2 className="mt-5 text-lg font-semibold">
-          {title}
-        </h2>
-
-        <p className="mt-2 text-sm leading-6 text-zinc-500">
-          {description}
-        </p>
-
-        {actionLabel && (
-          <button
-            onClick={
-              onAction
-            }
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-700"
-          >
-            {actionLabel}
-            <ChevronRight
-              size={15}
-            />
-          </button>
-        )}
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =====================================================
-   SMALL HELPERS
-===================================================== */
-
-function LoadingRow() {
-  return (
-    <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-400">
-
-      <Loader2
-        size={16}
-        className="animate-spin"
-      />
-
-      Loading documents...
-
-    </div>
-  );
-}
-
-function EmptyText({
-  children,
-}) {
-  return (
-    <div className="rounded-2xl bg-zinc-50 p-5 text-center text-sm text-zinc-400">
-      {children}
-    </div>
-  );
-}
-
-function pageTitle(
-  view
-) {
-  switch (view) {
-    case VIEWS.COLLECTIONS:
-      return "Collections";
-
-    case VIEWS.DOCUMENTS:
-      return "Documents";
-
-    case VIEWS.INTELLIGENCE:
-      return "Document Intelligence";
-
-    case VIEWS.WORKFLOW:
-      return "Action Workflow";
-
-    case VIEWS.ASSISTANT:
-      return "AI Assistant";
-
-    default:
-      return "Dashboard";
-  }
 }

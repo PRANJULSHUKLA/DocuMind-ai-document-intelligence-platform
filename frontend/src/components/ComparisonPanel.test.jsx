@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { vi, test, expect } from 'vitest'
 import ComparisonPanel from './ComparisonPanel'
 import { compareCollection } from '../services/collectionService'
+import { saveReport } from '../services/reportService'
 vi.mock('../services/collectionService', () => ({ compareCollection: vi.fn() }))
+vi.mock('../services/reportService', () => ({ saveReport: vi.fn() }))
 test('requires two documents and renders evidence-backed conservative findings', async () => {
   const user = userEvent.setup(), open = vi.fn()
   const source = { evidence_id: 'e1', file_id: 'a', filename: 'A.pdf', page_number: 1, excerpt: 'USD 100.' }
@@ -31,4 +33,20 @@ test('bounded semantic mode is explicit and shows structured evidence and limits
   expect(compareCollection.mock.lastCall[4]).toBe(true)
   await user.click(screen.getByText('Review structured evidence facts (1)'))
   expect(screen.getByText(/literal_only/)).toBeVisible()
+})
+
+test('saving uses the reviewed server digest and requires a title and confirmation', async () => {
+  const user = userEvent.setup()
+  compareCollection.mockResolvedValue({ review_digest: 'a'.repeat(64), summary: {}, limitations: [], sources: [], findings: [] })
+  saveReport.mockResolvedValue({ title: 'Reviewed payment' })
+  render(<ComparisonPanel collectionId="project" documents={[{ _id: 'a', filename: 'A.pdf', status: 'completed' }, { _id: 'b', filename: 'B.pdf', status: 'completed' }]} onSourceSelect={vi.fn()} />)
+  await user.click(screen.getByLabelText('Use validated obligation comparison (bounded)'))
+  await user.click(screen.getByLabelText('A.pdf · completed'))
+  await user.click(screen.getByLabelText('B.pdf · completed'))
+  await user.click(screen.getByRole('button', { name: 'Compare selected documents' }))
+  await user.type(await screen.findByRole('textbox', { name: 'Report title' }), 'Reviewed payment')
+  await user.click(screen.getByLabelText('I reviewed these findings and their limitations'))
+  await user.click(screen.getByRole('button', { name: 'Save reviewed comparison' }))
+  await screen.findByText(/Saved report: Reviewed payment/)
+  expect(saveReport).toHaveBeenCalledWith('project', expect.objectContaining({ reviewed: true, expected_digest: 'a'.repeat(64), file_ids: ['a', 'b'] }))
 })

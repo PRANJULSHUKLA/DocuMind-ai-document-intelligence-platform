@@ -490,3 +490,6 @@ app.include_router(document_view_router)
 
 from app.routes.collections import router as collections_router
 app.include_router(collections_router)
+
+from app.routes.comparison_reports import router as comparison_reports_router
+app.include_router(comparison_reports_router)

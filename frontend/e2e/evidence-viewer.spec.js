@@ -146,3 +146,55 @@ test('synthetic comparison exposes differences and opens original evidence', asy
   await page.getByRole('button', { name: 'Back to collection' }).click()
   await expect(panel.getByText('Amount (USD)', { exact: true })).toBeVisible()
 })
+
+test('reviewed comparison can be saved, reopened stale, exported and deleted', async ({ page }) => {
+  const second = '507f1f77bcf86cd799439012'
+  const reportId = '507f1f77bcf86cd799439099'
+  let saved = false
+  const snapshot = { review_digest: 'a'.repeat(64), summary: {}, limitations: ['Bounded evidence only.'], findings: [], sources: [], method: 'literal_plus_verified_normalization_v1' }
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/api/files') return route.fulfill({ json: [{ _id: fileId, filename: 'A.pdf', status: 'completed' }, { _id: second, filename: 'B.pdf', status: 'completed' }] })
+    if (path === '/api/collections') return route.fulfill({ json: [{ id: 'project', name: 'Reports', file_ids: [fileId, second], revision: 1 }] })
+    if (path.endsWith('/compare-semantic')) return route.fulfill({ json: snapshot })
+    if (path === '/api/comparison-reports/collection/project') {
+      expect(route.request().postDataJSON()).toMatchObject({ reviewed: true, expected_digest: snapshot.review_digest, title: 'Reviewed payment' })
+      saved = true
+      return route.fulfill({ status: 201, json: { id: reportId, title: 'Reviewed payment' } })
+    }
+    if (path === '/api/comparison-reports') return route.fulfill({ json: saved ? [{ id: reportId, title: 'Reviewed payment' }] : [] })
+    if (path.endsWith('/export')) {
+      const format = new URL(route.request().url()).searchParams.get('format')
+      return route.fulfill({ contentType: format === 'pdf' ? 'application/pdf' : 'application/json', body: format === 'pdf' ? pdf : JSON.stringify(snapshot) })
+    }
+    if (path === `/api/comparison-reports/${reportId}`) {
+      if (route.request().method() === 'DELETE') { saved = false; return route.fulfill({ status: 204 }) }
+      return route.fulfill({ json: { id: reportId, title: 'Reviewed payment', created_at: '2026-11-01', stale: true, snapshot } })
+    }
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Collections', exact: true }).first().click()
+  await page.getByRole('combobox', { name: 'Active collection' }).selectOption('project')
+  const panel = page.getByRole('region', { name: 'Document comparison' })
+  await panel.getByLabel('Use validated obligation comparison (bounded)').check()
+  await panel.getByLabel('A.pdf · completed').check()
+  await panel.getByLabel('B.pdf · completed').check()
+  await panel.getByRole('button', { name: 'Compare selected documents' }).click()
+  await panel.getByRole('textbox', { name: 'Report title' }).fill('Reviewed payment')
+  await panel.getByLabel('I reviewed these findings and their limitations').check()
+  await panel.getByRole('button', { name: 'Save reviewed comparison' }).click()
+  await expect(panel.getByText(/Saved report: Reviewed payment/)).toBeVisible()
+  const reports = page.getByRole('region', { name: 'Saved comparison reports' })
+  await reports.getByRole('button', { name: 'Refresh saved reports' }).click()
+  await reports.getByRole('button', { name: 'Open report: Reviewed payment' }).click()
+  await expect(reports.getByText(/STALE: source revisions changed/)).toBeVisible()
+  for (const format of ['JSON', 'PDF']) {
+    const download = page.waitForEvent('download')
+    await reports.getByRole('button', { name: `Export ${format}` }).click()
+    expect((await download).suggestedFilename()).toBe(`documind-report-${reportId}.${format.toLowerCase()}`)
+  }
+  page.once('dialog', dialog => dialog.accept())
+  await reports.getByRole('button', { name: 'Delete report: Reviewed payment' }).click()
+  await expect(reports.getByRole('button', { name: 'Open report: Reviewed payment' })).toHaveCount(0)
+})

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { compareCollection } from '../services/collectionService'
+import { saveReport } from '../services/reportService'
 
 const labels = { supported_agreement: 'Supported agreement', supported_difference: 'Supported difference', possible_contradiction: 'Possible contradiction', missing_information: 'Missing information', insufficient_evidence: 'Insufficient evidence' }
 
@@ -10,12 +11,13 @@ export default function ComparisonPanel({ collectionId, documents, onSourceSelec
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [semantic, setSemantic] = useState(false)
+  const [saved, setSaved] = useState('')
   const request = useRef(null)
   useEffect(() => () => request.current?.abort(), [])
   async function compare(event) {
     event.preventDefault(); request.current?.abort()
     const controller = new AbortController(); request.current = controller
-    setLoading(true); setError(''); setResult(null)
+    setLoading(true); setError(''); setResult(null); setSaved('')
     try { const data = await compareCollection(collectionId, selected, focus, controller.signal, semantic); if (!controller.signal.aborted) setResult(data) }
     catch (failure) { if (!controller.signal.aborted) setError(failure.response?.data?.detail || 'Comparison failed. Please retry.') }
     finally { if (!controller.signal.aborted) setLoading(false) }
@@ -33,6 +35,14 @@ export default function ComparisonPanel({ collectionId, documents, onSourceSelec
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {result && <div className="space-y-4" aria-label="Comparison findings">
       <h4 className="font-semibold">Comparison summary</h4>
+      {result.review_digest && <form className="space-y-2 rounded border p-3" onSubmit={async event => {
+        event.preventDefault(); const values = new FormData(event.currentTarget)
+        setLoading(true); setError(''); setSaved('')
+        try { const row = await saveReport(collectionId, { file_ids: selected, focus, title: values.get('title'), reviewed: true, expected_digest: result.review_digest }); setSaved(`Saved report: ${row.title}. Use Refresh saved reports below to open it.`) }
+        catch (failure) { setError(failure.response?.data?.detail || 'Could not save report. Review current findings and retry.') }
+        finally { setLoading(false) }
+      }}><label className="block">Report title<input name="title" aria-label="Report title" required maxLength={100} disabled={loading} className="ml-2 rounded border p-2" /></label><label className="block"><input type="checkbox" name="reviewed" required disabled={loading} /> I reviewed these findings and their limitations</label><button disabled={loading} className="rounded border p-2">Save reviewed comparison</button></form>}
+      {saved && <p role="status">{saved}</p>}
       <p className="text-sm">{Object.entries(result.summary).map(([label, count]) => `${labels[label]}: ${count}`).join(' · ')}</p>
       {result.limitations.map(text => <p key={text} className="text-xs text-zinc-500">{text}</p>)}
       {result.extraction_limitations?.length > 0 && <p role="status" className="text-sm text-amber-800">Some evidence was skipped or capped: {result.extraction_limitations.map(row => `${row.file_id}: ${row.reason}`).join('; ')}</p>}

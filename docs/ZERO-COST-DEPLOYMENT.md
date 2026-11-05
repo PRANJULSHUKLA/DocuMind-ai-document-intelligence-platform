@@ -2,19 +2,19 @@
 
 Checked 5 November 2026. Stable main is `b10554ea3572773242807a9229b5086af7bfc7af`. Dedicated branch: `codex/zero-cost-deployment`. UI PR #13 remains separate and unmerged. No running development checkout, credentials, upload, database record, Atlas index or Docker volume was modified by these preparations.
 
-**Status: deployment blocked on account access and unverified production gates. No cloud resource has been provisioned and no public application has been published.** This is not a private-beta or production-readiness certification.
+**Status: STATIC DEMO published at https://documind-ai-showcase.pages.dev/.** Cloudflare Free account verified; one static Pages Direct Upload project is live. The real backend is not deployed: the operator has no Oracle account, and the managed-identity/budget/persistence gates below remain incomplete. This is not a private-beta or production-readiness certification.
 
 ## Actual account preflight
 
 | Service | Observed account state | What remains unverified |
 | --- | --- | --- |
-| Cloudflare | Dashboard redirected to sign-in | Account Free plan, Pages availability, resource usage and billing status |
-| Oracle | Console redirected to cloud-account sign-in | Tenancy/home region, Always Free status, current allocations, A1 host capacity, boot/data volume eligibility, public IP/egress and billing status |
+| Cloudflare | Signed in; current Workers plan Free ($0), no existing projects and zero requests at preflight. Static Pages project successfully published. | Recheck eligibility before any future paid feature or infrastructure change; no such change was made. |
+| Oracle | Operator confirmed no Oracle account | Account creation/eligibility, tenancy/home region, current free allocations, A1 capacity, boot/data volumes, IP/egress and billing status |
 | Atlas | Old tab displayed cached network settings; fresh reload required login | Current tier, storage/use, vector index compatibility, backup eligibility, deployment-source access and TLS from a real VM |
 | Gemini | No model request made | Project billing disabled, exact model availability and per-project free RPM/TPM/RPD, bounded usage reservation |
 | Managed OIDC | No configured production tenant/application available in this handoff | Free account eligibility, issuer/audience, PKCE, exact callbacks and two real test identities |
 
-The operator was asked to sign in directly to Cloudflare and Oracle. No password, card, API key or SSH private key was requested in chat. Atlas must also be signed in again before its current account state can be inspected. No account was upgraded or signup agreement accepted.
+The operator signed in directly to Cloudflare and confirmed there is no Oracle account. No password, card, API key or SSH private key was requested in chat. Atlas must also be signed in again before its current account state can be inspected. No account was upgraded or signup agreement accepted.
 
 ## Provider documentation, not account-level eligibility
 
@@ -55,13 +55,13 @@ There is no unconditional promise that a provider will keep these offers forever
 
 Any failure keeps processing private/closed. No claim of public readiness, live ingestion, successful OIDC or restart persistence is made by the offline tests.
 
-## Static Cloudflare fallback — ready for account access
+## Static Cloudflare deployment — completed
 
 `deploy/showcase/` is an independent static portfolio site. It has no login, upload form, app build, model endpoint, JavaScript, cookies, analytics, Functions or API connection. CSP blocks connections/forms and framing; Cloudflare `_headers` adds the security policy. Screenshots and quoted examples are synthetic and explicitly labeled. A screenshot of draft PR #13 is identified as a design preview rather than silently incorporating unmerged UI code.
 
 Prefer [Pages Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/) on a verified Free account. Upload **only `deploy/showcase/`**, not the repository, `.env`, uploads, source checkout or local ZIP. Keep automatic Git production and preview builds disabled by using Direct Upload. No GitHub credential grant is needed. With Git integration instead, use only this reviewed deployment branch, turn off automatic production deployments and disable previews for all other branches; verify [branch controls](https://developers.cloudflare.com/pages/configuration/branch-build-controls/) in the account before upload. An unrelated push to main must not publish the application.
 
-The directory is below the published file/asset limits. Current status: locally rendered and tested, **not uploaded** because the Cloudflare account is signed out. Account access is the smallest remaining step for this fallback. A public `pages.dev` URL will only be reported after an actual successful upload and HTTPS verification.
+The six-file directory is below the published limits and was successfully uploaded through the Pages Direct Upload UI on the verified Free account. **Public URL: https://documind-ai-showcase.pages.dev/**. Immutable deployment alias: https://9a290f9b.documind-ai-showcase.pages.dev/. Deployment ID: `9a290f9b-6b38-47e1-9f92-eb0c8405f0a5`. Source assets match commit `0d83fcc02916a2a4fce6e566eb6eb8988613fec8`. Settings show no Git repository connected, no variables/secrets and no bindings. The default production-branch label is `main`, but there is no Git integration or webhook; an unrelated GitHub push cannot publish this project. No paid plan, domain, Function, storage binding or automatic overage was enabled.
 
 Local preview (independent of ports 5179/5182):
 
@@ -100,10 +100,25 @@ Restore only into an isolated approved pilot namespace/location first. Match fil
 - Complete backend suite plus new deployment checks: **221 passed**, two existing deprecation warnings. Tests cover production-only guard, TLS/CORS/retry configuration rejection, private queue and worker opt-in, shared storage declaration, and a static showcase with no data-collection surface.
 - Compose schema validated without resolving a secret file or starting any service.
 - Arm64 Python/Valkey image manifest compatibility verified. Local image build and browser smoke results are recorded in the handoff once complete.
-- **Not yet tested in cloud:** provisioning, DNS/HTTPS, OIDC identities, budgets, Atlas/vector search from VM, PDF persistence/restart/restore, live OCR/embedding/RAG/comparison/report workflows. No paid model call was made.
+- **Not yet tested for the real backend:** Oracle provisioning, backend DNS/HTTPS, OIDC identities, budgets, Atlas/vector search from VM, PDF persistence/restart/restore, live OCR/embedding/RAG/comparison/report workflows. No paid model call was made.
 
-Resume with signed-in Cloudflare/Oracle dashboards. If Oracle capacity or any mandatory gate is unavailable at zero cost, deploy only the static showcase after verifying the Cloudflare Free account. Do not publish the functional frontend against localhost, a fake API, or an unverified backend.
+The static fallback is complete. Resume the real backend only with an eligible no-cost backend account/host and the required identity, quota, storage and recovery gates. Oracle remains unavailable because there is no account. Do not publish the functional frontend against localhost, a fake API, or an unverified backend.
 
 Static browser checks: **9 passed** (the original six application scenarios plus showcase at 360/768/1440 px). Frontend lint passed. See [desktop showcase capture](deployment-review/showcase-desktop.png) and [mobile showcase capture](deployment-review/showcase-mobile.png); these are actual browser screenshots, not a deployed public site. Existing local frontend ports 5179 and 5182 both returned HTTP 200 after preparation. Original unrelated agent-edit and ZIP hashes matched the release baseline.
 
 Local image verification completed: Linux **aarch64** image built successfully with pinned application requirements and `pip check` clean. A disposable, network-disabled read-only container imported FastAPI, MongoDB, Redis/RQ, Gemini SDK, PDF rendering and report libraries as UID **10001**, confirmed Poppler availability and no `.env` in the application image. Unconfigured startup refused to run before opening the API. No data volume or real secret was mounted. Frontend unit tests: **19 passed**; production build passed with the existing lazy PDF chunk-size warning. These local results do not establish Oracle VM capacity or successful cloud deployment.
+
+## Public deployment verification, 5 November 2026
+
+- Live Chromium checks at **360 and 1440 px**: HTTP 200, no page errors, no horizontal overflow, no scripts/forms/inputs, no external API requests, and zero cookies. Both screenshot assets load; the static/synthetic disclosure remains visible.
+- Independent curl with ordinary certificate validation: all five served assets match the reviewed local bytes/SHA-256 hashes. Pages redirects `/404.html` to its canonical `/404` URL; the content is unchanged.
+- `/api/files`, `/api/session`, `/.env` and an unknown route return **404** with the static error page, not the application or a fake backend.
+- Live response headers include CSP with `connect-src 'none'`, `form-action 'none'` and `frame-ancestors 'none'`, plus nosniff, no-referrer, disabled sensitive browser permissions and DENY framing. No Set-Cookie response header.
+- One client limitation: default Python urllib receives Cloudflare **403 / error 1010** while curl and real Chromium succeed. [Cloudflare documents browser-signature checks on pages.dev](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/). No security setting or certificate validation was weakened. Use a real browser or curl for this static site's health check.
+- No backend URL, VM, private PDF store, OIDC tenant or model workflow was deployed. There were no model calls. This result is **STATIC DEMO**, not PRIVATE BETA or PRODUCTION-READY.
+
+### Operate the static site
+
+The static site has no process to restart and no database to back up. Its exact six source files and synthetic assets are versioned in Git; preserve the reviewed source commit or the matching static-only ZIP. Update/recover by creating a Pages Direct Upload deployment with only `deploy/showcase/`, then verify HTTPS, hashes, headers and the demo label. Use deployment history to roll back once a later version exists; the initial immutable alias above records the first release. Do not connect Git, add Functions/bindings, upload a full repository, or publish the functional frontend as part of a static update.
+
+The deployed static assets are eligible for the current Free allowance; no paid feature was selected. This is a current-plan assessment, not a guarantee about future provider pricing or account changes. Recheck before upgrades, domain purchases, dynamic services or adding paid integrations. The staged backend sizing is only a proposal and has not been provisioned.

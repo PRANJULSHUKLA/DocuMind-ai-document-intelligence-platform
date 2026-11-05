@@ -1,0 +1,15 @@
+**
+!requirements.txt
+!app/
+!app/**
+!deploy/
+!deploy/production/
+!deploy/production/start.py
+!deploy/production/readiness.py
+**/__pycache__/**
+**/*.pyc
+**/.env*
+**/*.zip
+**/*.pem
+**/*.key
+**/uploads/**

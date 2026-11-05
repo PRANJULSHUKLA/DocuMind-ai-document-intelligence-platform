@@ -1,0 +1,11 @@
+# Deliberately closed. No document-processing route is published by this template.
+# A real owned/approved hostname, DNS, certificate issuance and all release gates
+# must be verified before replacing this with reviewed upstream routing.
+{$API_HOSTNAME} {
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Cache-Control no-store
+    }
+    respond "DocuMind private staging. Public processing is not enabled." 503
+}

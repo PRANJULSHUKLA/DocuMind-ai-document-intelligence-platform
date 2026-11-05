@@ -1,0 +1,91 @@
+{
+  "url": "https://documind-ai-showcase.pages.dev",
+  "tls": "normal certificate validation via curl",
+  "results": [
+    {
+      "path": "/",
+      "status": 200,
+      "bytes": 6067,
+      "sha256": "e5df3f0bcd88d52f4732a244b0810c3d1136413a7914148a7b21539346847a61",
+      "security_headers": {
+        "content-security-policy": "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; connect-src 'none'; object-src 'none'; frame-ancestors 'none'",
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "no-referrer",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "x-frame-options": "DENY"
+      },
+      "set_cookie_present": false
+    },
+    {
+      "path": "/styles.css",
+      "status": 200,
+      "bytes": 4743,
+      "sha256": "4c509b03dc00f50308e75cf8f6e0cd889a415c094794bda06f07a9ccdb259f01"
+    },
+    {
+      "path": "/assets/stable-evidence.png",
+      "status": 200,
+      "bytes": 117527,
+      "sha256": "d9df24d9ff1c66405cefc09b5586af3662323e6bd4097f81d3d7be8bef7b25c3"
+    },
+    {
+      "path": "/assets/design-preview.png",
+      "status": 200,
+      "bytes": 134534,
+      "sha256": "031c360332037ad09aa24af59a95ee0abf677663cc94180d780eb12d36f79106"
+    },
+    {
+      "path": "/404.html",
+      "status": 200,
+      "bytes": 490,
+      "sha256": "15b8b1230191630242d57417084f00d151353313e46349f8b29b495b30789634"
+    },
+    {
+      "path": "/api/files",
+      "status": 404,
+      "bytes": 490
+    },
+    {
+      "path": "/api/session",
+      "status": 404,
+      "bytes": 490
+    },
+    {
+      "path": "/missing-test-page",
+      "status": 404,
+      "bytes": 490
+    },
+    {
+      "path": "/.env",
+      "status": 404,
+      "bytes": 490
+    }
+  ],
+  "verdict": "STATIC DEMO",
+  "source_commit": "0d83fcc02916a2a4fce6e566eb6eb8988613fec8",
+  "project": "documind-ai-showcase",
+  "deployment_id": "9a290f9b-6b38-47e1-9f92-eb0c8405f0a5",
+  "immutable_alias": "https://9a290f9b.documind-ai-showcase.pages.dev/",
+  "account_plan_observed": "Free ($0)",
+  "method": "Pages Direct Upload",
+  "git_connected": false,
+  "bindings": [],
+  "secrets": [],
+  "browser_results": [
+    {
+      "width": 360,
+      "status": 200,
+      "page_errors": [],
+      "requests": 4,
+      "cookies": 0
+    },
+    {
+      "width": 1440,
+      "status": 200,
+      "page_errors": [],
+      "requests": 4,
+      "cookies": 0
+    }
+  ],
+  "default_python_client": "HTTP 403 Cloudflare error 1010; browser/curl succeed; security unchanged"
+}

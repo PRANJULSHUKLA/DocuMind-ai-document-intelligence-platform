@@ -1,0 +1,81 @@
+# PRIVATE STAGING ONLY. No public ingress; no cloud resource provisioning.
+name: documind-staging
+x-app: &app
+  image: documind-staging:${DOCUMIND_REVISION:?set an exact reviewed commit}
+  build:
+    context: ../..
+    dockerfile: deploy/production/Dockerfile
+  env_file:
+    - ${DOCUMIND_ENV_FILE:?set an absolute path to the private server env file}
+  environment:
+    APP_ENV: production
+    AUTH_MODE: oidc
+    REDIS_URL: redis://queue:6379/0
+    UPLOAD_DIR: /srv/uploads
+    MAX_UPLOAD_MB: '5'
+    GEMINI_MAX_RETRIES: '0'
+    GEMINI_FALLBACK_MODELS: ''
+    LANGSMITH_TRACING: 'false'
+  volumes:
+    - originals:/srv/uploads
+  depends_on:
+    queue:
+      condition: service_healthy
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=256m,mode=1777
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  init: true
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+services:
+  api:
+    <<: *app
+    command: [api]
+    ports:
+      - 127.0.0.1:18000:8000
+    cpus: 0.75
+    mem_limit: 1g
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, python, deploy/production/readiness.py]
+      interval: 60s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
+  worker:
+    <<: *app
+    profiles: [processing]
+    command: [worker]
+    cpus: 1
+    mem_limit: 2g
+    pids_limit: 128
+    stop_grace_period: 16m
+  queue:
+    image: valkey/valkey:8-alpine@sha256:2602ace2be6569bc2bbb06f873776516ab9089821525be34f4305c67eb9db02a
+    command: [valkey-server, --appendonly, 'yes', --appendfsync, everysec, --maxmemory, 128mb, --maxmemory-policy, noeviction]
+    volumes:
+      - queue-data:/data
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 256m
+    pids_limit: 64
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, valkey-cli, ping]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+volumes:
+  originals:
+  queue-data:

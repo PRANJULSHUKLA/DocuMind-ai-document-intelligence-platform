@@ -5,6 +5,7 @@ import time
 import requests
 
 from app.llm.gemini import API_KEY, VISION_MODEL
+from app.services import pilot_budget
 
 PROMPT = """
 You are an intelligent OCR engine.
@@ -22,6 +23,8 @@ def image_to_markdown(
     image_path: str,
     max_retries: int = 3,
 ) -> str:
+    if pilot_budget.enabled():
+        max_retries = 1
     with open(image_path, "rb") as image_file:
         image_base64 = base64.b64encode(
             image_file.read()
@@ -55,6 +58,7 @@ def image_to_markdown(
 
     for attempt in range(1, max_retries + 1):
         try:
+            pilot_budget.reserve('model')
             response = requests.post(
                 url,
                 headers=headers,
@@ -62,6 +66,8 @@ def image_to_markdown(
                 timeout=120,
             )
 
+            if pilot_budget.enabled() and response.status_code == 429:
+                pilot_budget.exhausted()
             if response.status_code in {429, 500, 502, 503, 504}:
                 if attempt < max_retries:
                     time.sleep(min(2 ** attempt, 8))

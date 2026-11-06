@@ -123,6 +123,9 @@ async def retry_upload(file_id: str, workspace_id: str, root: Path) -> tuple[int
         return response(file_id, document["filename"], Observation("confirmed"), "completed")
     if document.get("upload_protocol") != 1:
         raise RuntimeError("This older upload requires operator review before recovery.")
+    if document.get('original_storage') == 'mongo_pilot':
+        from app.services.pilot_originals import restore
+        await restore(root, document)
     path = await run_in_threadpool(recoverable_original, root, document)
     attempt = document["enqueue_attempt"]
     expected = job_id(file_id, attempt)

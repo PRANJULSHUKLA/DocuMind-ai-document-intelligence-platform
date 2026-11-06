@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { clearSession, developmentIdentity, initializeAuth, signIn, signInConfigured, signOut } from '../services/auth'
 
+const pilotNotice = import.meta.env.VITE_PILOT_MODE === '1'
+  ? <p role="note" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">Limited free pilot: synthetic PDFs only, 2 MB and 3 pages maximum. Five uploads total and 30 model-call attempts per UTC day are shared by all testers. The service sleeps when idle; interrupted processing may need Retry. This is not a production document archive.</p>
+  : null
+
 export default function AuthGate({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(!developmentIdentity && signInConfigured)
@@ -30,6 +34,7 @@ export default function AuthGate({ children }) {
 
   if (developmentIdentity || user) {
     return <>
+      {pilotNotice}
       <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs shadow-sm">
         <span>{developmentIdentity ? 'Local development workspace' : user.profile.name || 'Private workspace'}</span>
         {!developmentIdentity && <button onClick={() => signOut().catch(() => setError('Unable to sign out. Please try again.'))} className="font-semibold underline">Sign out</button>}
@@ -44,6 +49,7 @@ export default function AuthGate({ children }) {
       <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">DocuMind AI</p>
       <h1 className="mt-3 text-2xl font-semibold">Your private document workspace</h1>
       <p className="mt-3 text-sm leading-6 text-zinc-600">Understand documents, review evidence, and turn findings into useful actions.</p>
+      {pilotNotice}
       {loading ? <p className="mt-6 text-sm" role="status">Checking your session…</p> : signInConfigured ?
         <button className="mt-6 w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white" onClick={() => signIn().catch(() => setError('Unable to open sign-in. Please try again.'))}>Sign in to continue</button> :
         <p className="mt-6 rounded-xl bg-zinc-50 p-4 text-sm text-zinc-600">Sign-in is being set up. Contact your workspace administrator for access.</p>}

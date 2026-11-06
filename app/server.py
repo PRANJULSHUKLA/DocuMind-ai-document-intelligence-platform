@@ -28,6 +28,7 @@ from app.services.workflow_service import WorkflowService
 from app.services.knowledge_service import KnowledgeService
 from app.services import upload_dispatch
 from app.utils.upload_storage import original_path, save_original
+from app.services import pilot_budget, pilot_originals
 
 from app.db.collections.files import files_collection
 from app.queue.q import q
@@ -195,6 +196,15 @@ async def upload(file: UploadFile = File(...), identity: Identity = Depends(curr
                 detail="The uploaded file does not appear to be a valid PDF.",
             )
 
+        pilot = pilot_budget.enabled()
+        if pilot:
+            if len(content) > pilot_originals.MAX_BYTES:
+                raise HTTPException(413, 'Pilot PDFs must be at most 2 MB.')
+            try:
+                await run_in_threadpool(pilot_budget.reserve, 'upload')
+            except GenerationUnavailableError:
+                raise HTTPException(429, 'Pilot upload allowance is exhausted or unavailable.') from None
+
         record = FileSchema(
             filename=filename,
             status=FileStatus.SAVING,
@@ -206,8 +216,12 @@ async def upload(file: UploadFile = File(...), identity: Identity = Depends(curr
             **record.model_dump(), "upload_protocol": 1, "upload_size_bytes": len(content),
             "enqueue_attempt": 1, "enqueue_state": "saving",
             "enqueue_updated_at": datetime.now(timezone.utc),
+            **({'original_storage': 'mongo_pilot'} if pilot else {}),
         })
         file_id = str(inserted.inserted_id)
+
+        if pilot:
+            await pilot_originals.save({'_id': file_id, 'workspace_id': identity.workspace_id}, content)
 
         saved_path = original_path(UPLOAD_DIR, {"_id": file_id, "filename": filename})
         await run_in_threadpool(save_original, saved_path, content)

@@ -5,6 +5,7 @@ import random
 import time
 
 from app.errors import GenerationUnavailableError
+from app.services import pilot_budget
 
 from dotenv import load_dotenv
 from google import genai
@@ -51,7 +52,10 @@ MAX_RETRIES = max(
     int(os.getenv("GEMINI_MAX_RETRIES", "2")),
 )
 
-client = genai.Client(api_key=API_KEY, http_options={"timeout": 120000})
+client = genai.Client(api_key=API_KEY, http_options={
+    "timeout": 120000,
+    **({'retry_options': {'attempts': 1}} if pilot_budget.enabled() else {}),
+})
 logger = logging.getLogger("documind.gemini")
 
 
@@ -106,12 +110,17 @@ def generate_content_with_fallback(
     for candidate in models_to_try:
         for attempt in range(MAX_RETRIES + 1):
             try:
+                pilot_budget.reserve('model')
                 return client.models.generate_content(
                     model=candidate,
                     contents=contents,
                     config=config,
                 )
             except Exception as error:
+                if pilot_budget.enabled():
+                    if getattr(error, 'code', None) == 429:
+                        pilot_budget.exhausted()
+                    raise GenerationUnavailableError('Pilot generation is temporarily unavailable.') from None
                 last_error = error
                 logger.warning(
                     "Generation failed: model=%s attempt=%d error_type=%s",

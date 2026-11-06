@@ -9,7 +9,8 @@ from uuid import uuid4
 
 from bson import ObjectId
 from pymongo import ReturnDocument
-from pdf2image import convert_from_path
+from pdf2image import convert_from_path, pdfinfo_from_path
+from app.services import pilot_budget
 
 from app.constants.status import FileStatus
 from app.db.collections.files import files_collection
@@ -94,6 +95,9 @@ async def _process_file_async(
         workspace_id = document.get("workspace_id")
         if not workspace_id:
             raise ValueError("Document has no workspace assignment.")
+        if document.get('original_storage') == 'mongo_pilot':
+            from app.services.pilot_originals import restore
+            await restore(source_path.parent.parent, document)
         if not source_path.is_file():
             raise FileNotFoundError("Uploaded PDF is missing.")
         if source_path.suffix.lower() != ".pdf":
@@ -109,11 +113,18 @@ async def _process_file_async(
         # -----------------------------------------------------
         # Stage 1: Convert the PDF into images
         # -----------------------------------------------------
-        pages = convert_from_path(
-            str(source_path),
-            dpi=150,
-            thread_count=2,
-        )
+        if pilot_budget.enabled():
+            count = pdfinfo_from_path(str(source_path), timeout=10).get('Pages', 0)
+            if not isinstance(count, int) or not 1 <= count <= 3:
+                raise ValueError('Pilot PDFs must have one to three pages.')
+            # Bounded pixel dimensions and disk-backed rendering avoid holding
+            # every uncompressed page in the 512 MB service at once.
+            pages = convert_from_path(str(source_path), dpi=120, thread_count=1,
+                                      size=1600, output_folder=str(source_path.parent),
+                                      fmt='jpeg', paths_only=True, timeout=30)
+            temporary_images.extend(Path(path) for path in pages)
+        else:
+            pages = convert_from_path(str(source_path), dpi=150, thread_count=2)
 
         if not pages:
             raise ValueError("The PDF contains no readable pages.")
@@ -141,18 +152,19 @@ async def _process_file_async(
         for index, page in enumerate(pages):
             page_number = index + 1
 
-            image_path = Path(
-                f"{source_path}_page_{run_id}_{index}.jpg"
-            )
-            temporary_images.append(image_path)
-
-            page.save(str(image_path), format="JPEG")
+            if pilot_budget.enabled():
+                image_path = Path(page)
+            else:
+                image_path = Path(f"{source_path}_page_{run_id}_{index}.jpg")
+                temporary_images.append(image_path)
+                page.save(str(image_path), format="JPEG")
 
             try:
                 markdown = image_to_markdown(str(image_path))
             finally:
                 # Release the in-memory image after OCR.
-                page.close()
+                if not pilot_budget.enabled():
+                    page.close()
 
             markdown = (markdown or "").strip()
 
@@ -224,6 +236,8 @@ async def _process_file_async(
             raise ValueError(
                 "Text was extracted, but no usable chunks were created."
             )
+        if pilot_budget.enabled() and len(page_chunks) > 20:
+            raise ValueError('Pilot document exceeds the 20-chunk processing limit.')
 
         logger.info(
             "Created %s chunks for document %s",

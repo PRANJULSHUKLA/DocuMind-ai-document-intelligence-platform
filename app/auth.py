@@ -76,7 +76,12 @@ async def current_identity(
     if credentials is None:
         raise HTTPException(401, "Sign-in required.", headers={"WWW-Authenticate": "Bearer"})
     try:
-        return await asyncio.to_thread(verify_token, credentials.credentials, issuer, audience)
+        identity = await asyncio.to_thread(verify_token, credentials.credentials, issuer, audience)
+        if os.getenv('DOCUMIND_RENDER_PILOT') == '1':
+            allowed = {item.strip() for item in os.getenv('PILOT_ALLOWED_SUBJECTS', '').split(',') if item.strip()}
+            if identity.subject not in allowed:
+                raise HTTPException(403, 'This pilot is restricted to approved test identities.')
+        return identity
     except (jwt.PyJWKClientConnectionError, httpx.HTTPError):
         raise HTTPException(503, "Sign-in provider is temporarily unavailable.") from None
     except (jwt.PyJWTError, ValueError, KeyError, TypeError):

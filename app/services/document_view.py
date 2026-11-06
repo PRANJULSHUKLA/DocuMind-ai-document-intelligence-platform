@@ -60,8 +60,13 @@ def read_original(document):
 async def metadata(file_id, workspace_id):
     document = await get_authorized_document(file_id, workspace_id)
     try:
-        available = await run_in_threadpool(lambda: checked_path(document).is_file())
-    except HTTPException:
+        if document.get('original_storage') == 'mongo_pilot':
+            from app.services.pilot_originals import read
+            await read(document)
+            available = True
+        else:
+            available = await run_in_threadpool(lambda: checked_path(document).is_file())
+    except (HTTPException, FileNotFoundError, ValueError):
         available = False
     return {'file_id': file_id, 'filename': document['filename'], 'status': document['status'],
             'total_pages': document.get('total_pages', 0), 'version': revision(document),
@@ -74,7 +79,16 @@ async def content(file_id, workspace_id, version=None):
     document = await get_authorized_document(file_id, workspace_id)
     if version and version != revision(document):
         raise HTTPException(409, 'SOURCE_VERSION_MISMATCH')
-    data = await run_in_threadpool(read_original, document)
+    if document.get('original_storage') == 'mongo_pilot':
+        from app.services.pilot_originals import read
+        try:
+            data = await read(document)
+        except FileNotFoundError:
+            raise HTTPException(404, 'PDF_UNAVAILABLE') from None
+        except ValueError:
+            raise HTTPException(409, 'PDF_VERSION_MISMATCH') from None
+    else:
+        data = await run_in_threadpool(read_original, document)
     current = await get_authorized_document(file_id, workspace_id)
     if revision(current) != revision(document):
         raise HTTPException(409, 'SOURCE_VERSION_MISMATCH')

@@ -25,7 +25,8 @@ jobs:
       - run: python -m pytest -q
 
   frontend:
-    runs-on: ubuntu-latest
+    # Keep Chromium's OS dependencies stable as ubuntu-latest migrates to 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:

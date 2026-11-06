@@ -1,10 +1,25 @@
 """Supervise one API, one RQ worker and a loopback-only ephemeral queue."""
 import os
+import json
 from pathlib import Path
 import signal
 import subprocess
 import sys
 import time
+
+
+def load_secrets(path=Path('/etc/secrets/documind-secrets.json')):
+    """Use Render's runtime secret file, never Docker arguments or Vite variables."""
+    if not path.exists():
+        return
+    try:
+        values = json.loads(path.read_text())
+        if set(values) != {'MONGODB_URI', 'GEMINI_API_KEY'} or any(
+                not isinstance(value, str) or not value.strip() for value in values.values()):
+            raise ValueError('Invalid keys or values')
+        os.environ.update(values)
+    except Exception:
+        raise ValueError('The Render runtime secret file is invalid.') from None
 
 
 def validate(environment):
@@ -27,6 +42,10 @@ def validate(environment):
 
 
 def main():
+    load_secrets()
+    # Render supplies its assigned HTTPS origin; never guess a hostname or use '*'.
+    if not os.environ.get('CORS_ORIGINS'):
+        os.environ['CORS_ORIGINS'] = os.environ.get('RENDER_EXTERNAL_URL', '')
     validate(os.environ)
     Path(os.environ['UPLOAD_DIR']).mkdir(parents=True, exist_ok=True)
     children = []

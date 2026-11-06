@@ -53,7 +53,6 @@ DOCUMIND_RENDER_PILOT=1
 OIDC_ISSUER=https://dev-fa236sm0cc3oq60y.us.auth0.com/
 OIDC_AUDIENCE=urn:documind:render-pilot
 PILOT_ALLOWED_SUBJECTS=<explicit approved Auth0 user subject>
-CORS_ORIGINS=<actual exact HTTPS Render origin>
 UPLOAD_DIR=/srv/uploads
 MAX_UPLOAD_MB=2
 REDIS_URL=redis://127.0.0.1:6379/0
@@ -61,14 +60,18 @@ GEMINI_MAX_RETRIES=0
 GEMINI_FALLBACK_MODELS=
 LANGSMITH_TRACING=false
 DATABASE_NAME=<reviewed existing database with compatible vector index>
-MONGODB_URI=<operator-authorized secret with normal Atlas TLS>
-GEMINI_API_KEY=<operator-authorized free-quota project secret>
 MODEL_NAME=<explicit verified free-quota model>
 VISION_MODEL=<explicit verified free-quota model>
 WORKFLOW_MODEL=<explicit verified free-quota model>
 EMBEDDING_MODEL=<model matching the existing vector-index dimensions>
 ```
 
+Put only `MONGODB_URI` and `GEMINI_API_KEY` into the Render Secret File
+`documind-secrets.json`, as a JSON object with those exact two string keys. The
+supervisor loads `/etc/secrets/documind-secrets.json` at runtime before validation.
+This avoids Render's automatic environment-variable-to-build-argument translation.
+`CORS_ORIGINS` defaults to Render's actual `RENDER_EXTERNAL_URL` at startup; an
+explicit override must also be an exact HTTPS origin. There is no wildcard fallback.
 Never put secrets in Vite variables, Docker build arguments, Git, screenshots or logs.
 Before transmitting credentials to Render, obtain confirmation naming the credentials
 and destination. Do not add broad Atlas access rules or disable TLS to fix connectivity.
@@ -77,7 +80,7 @@ after Render reports the actual assigned hostname. Do not use wildcards.
 
 ## Verification completed locally
 
-- 243 backend tests; 19 frontend tests; lint; production build; nine existing Chromium
+- 244 backend tests; 19 frontend tests; lint; production build; nine existing Chromium
   scenarios passed before final documentation. All automated model/data tests are offline.
 - A disposable network-disabled Linux Arm64 container, with dummy credentials, no
   volumes, read-only root, 512 MiB memory/swap ceiling and 0.1 CPU, ran the actual

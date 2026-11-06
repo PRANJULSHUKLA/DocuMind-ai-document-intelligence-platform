@@ -212,3 +212,23 @@ def test_sdk_pilot_disables_automatic_retry_without_network():
     from google import genai
     client = genai.Client(api_key='offline-test-key', http_options={'retry_options': {'attempts': 1}})
     client.close()
+
+
+def test_runtime_secret_file_is_exact_and_never_evaluated(tmp_path, monkeypatch):
+    import json
+    path = Path(__file__).resolve().parents[1] / 'deploy/render/start.py'
+    spec = spec_from_file_location('render_secret_start', path)
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    secret = tmp_path / 'secrets.json'
+    monkeypatch.setenv('MONGODB_URI', 'offline-test')
+    monkeypatch.setenv('GEMINI_API_KEY', 'offline-test')
+    values = {'MONGODB_URI': 'mongodb+srv://offline:placeholder@cluster.test/',
+              'GEMINI_API_KEY': 'offline-$literal-placeholder'}
+    secret.write_text(json.dumps(values))
+    module.load_secrets(secret)
+    import os
+    assert os.environ['GEMINI_API_KEY'] == values['GEMINI_API_KEY']
+    secret.write_text(json.dumps({**values, 'AUTH_MODE': 'development'}))
+    with pytest.raises(ValueError, match='secret file is invalid'):
+        module.load_secrets(secret)
